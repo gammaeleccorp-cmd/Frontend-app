@@ -1,0 +1,10 @@
+{
+  "name": "Gamma Vehicle Platform",
+  "short_name": "Gamma",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#151517",
+  "theme_color": "#151517",
+  "lang": "fa",
+  "dir": "rtl"
+}
