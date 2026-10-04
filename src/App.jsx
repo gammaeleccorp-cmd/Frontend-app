@@ -19,6 +19,7 @@ import ProfilePage from "./pages/ProfilePage";
 import PageTransition from "./components/motion/PageTransition";
 import { getUserProducts, normalizeProductType, PRODUCTS } from "./data/mockData";
 import { isValidIranianNationalId } from "./utils/validation";
+import GammaSplash, { shouldPlayIntro } from "./components/splash/GammaSplash";
 import * as repo from "./services/gammaRepository";
 
 const LazyRoutesPage = lazy(() => import("./pages/RoutesPage"));
@@ -32,6 +33,7 @@ export default function App() {
 
 function LoginRoute() {
   const navigate = useNavigate(); const [mobile, setMobile] = useState(""); const [rememberMe, setRememberMe] = useState(false); const [busy, setBusy] = useState(false); const [error, setError] = useState("");
+  const [intro, setIntro] = useState(() => (shouldPlayIntro() ? "playing" : "done"));
   if (repo.hasSession()) return <Navigate to="/home" replace />;
   const submit = async () => { setBusy(true); setError(""); try { await repo.requestOtp(mobile); navigate("/otp", { state: { mobile } }); } catch (err) { setError(err?.message || "ارسال کد ناموفق بود."); } finally { setBusy(false); } };
   const submitWithRemember = async () => {
@@ -47,7 +49,7 @@ function LoginRoute() {
     }
   };
   void submit;
-  return <LoginPage mobile={mobile} onMobileChange={setMobile} onSubmit={submitWithRemember} rememberMe={rememberMe} onRememberMeChange={setRememberMe} onRegister={() => navigate("/register")} loading={busy} error={error} />;
+  return <><LoginPage mobile={mobile} onMobileChange={setMobile} onSubmit={submitWithRemember} rememberMe={rememberMe} onRememberMeChange={setRememberMe} onRegister={() => navigate("/register")} loading={busy} error={error} intro={intro} />{intro !== "done" && <GammaSplash onReveal={() => setIntro("reveal")} onFinish={() => setIntro("done")} />}</>;
 }
 
 function RegisterRoute() {

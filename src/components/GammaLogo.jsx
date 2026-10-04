@@ -1,11 +1,9 @@
-export default function GammaLogo() {
+import GammaMark from "./brand/GammaMark";
+
+export default function GammaLogo({ small = false }) {
   return (
-    <div className="brand-logo-slot">
-      <img
-        src="/logo-symbol.png"
-        alt="Gamma"
-        className="brand-logo"
-      />
-    </div>
+    <span className={`brand-logo${small ? " small-logo" : ""}`} role="img" aria-label="Gamma">
+      <GammaMark className="brand-logo__mark" data-gamma-logo-target="" />
+    </span>
   );
 }
