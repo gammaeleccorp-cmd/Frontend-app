@@ -4,6 +4,7 @@ import App from "./App";
 import "leaflet/dist/leaflet.css";
 import "./styles.css";
 import "./styles/gamma-motion.css";
+import "./styles/gamma-splash.css";
 
 createRoot(document.getElementById("root")).render(
   <React.StrictMode>

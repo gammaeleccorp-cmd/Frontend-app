@@ -52,7 +52,15 @@ button, input { -webkit-tap-highlight-color: transparent; }
   min-height: 100vh;
 }
 .center { display: grid; place-items: center; }
-.auth-shell { min-height: 100dvh; }
+.auth-shell { min-height: 100dvh; padding-bottom: 24px; }
+.auth-lead { line-height: 1.85; margin-bottom: 0; }
+.auth-shell[data-intro="playing"] .auth-card { opacity: 0; }
+.auth-shell[data-intro="playing"] .brand-logo__mark,
+.auth-shell[data-intro="reveal"] .brand-logo__mark { visibility: hidden; }
+.auth-shell[data-intro="reveal"] .auth-card { animation: auth-card-in 460ms cubic-bezier(.22, 1, .36, 1) 60ms both; }
+.auth-shell[data-intro="reveal"] .auth-card > :not(.brand-logo) { animation: auth-item-in 520ms cubic-bezier(.22, 1, .36, 1) both; animation-delay: calc(140ms + var(--i, 0) * 40ms); }
+@keyframes auth-card-in { from { opacity: 0; } }
+@keyframes auth-item-in { from { opacity: 0; transform: translateY(8px); } }
 
 .auth-card {
   width: min(100%, 420px);
@@ -74,13 +82,17 @@ button, input { -webkit-tap-highlight-color: transparent; }
 .brand-logo {
   width: 96px;
   height: 96px;
-  object-fit: contain;
-  display: block;
-  background: #f39a46;
-  padding: 10px;
+  display: grid;
+  place-items: center;
+  margin: 0 auto 18px;
+  color: var(--orange);
+  background: radial-gradient(circle at 50% 42%, rgba(255, 107, 26, 0.12), transparent 68%), #111113;
+  border: 1px solid var(--line-2);
   border-radius: 22px;
 }
+.brand-logo__mark { display: block; width: 72px; height: 72px; }
 .small-logo { width: 78px; height: 78px; border-radius: 18px; }
+.small-logo .brand-logo__mark { width: 58px; height: 58px; }
 .eyebrow {
   color: var(--orange);
   font-size: 12px;
