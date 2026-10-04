@@ -1,0 +1,261 @@
+/* ============================================================
+   Gamma splash intro  (component: components/splash/GammaSplash.jsx)
+   Rule: every element's BASE style is its final frame; the intro
+   is expressed as `animation-fill-mode: both` keyframes. Skipping
+   or reduced motion just removes animations -> final frame.
+   ============================================================ */
+
+:root {
+  --gs-bg: #151517;
+  --gs-orange: #ff6b1a;
+  --gs-orange-dark: #c2500d;
+  --gs-graphite: #2a2f38;
+  --gs-steel: #6b7380;
+  --gs-ease-out: cubic-bezier(.22, 1, .36, 1);
+  --gs-ease-io: cubic-bezier(.55, 0, .2, 1);
+}
+
+html.gs-lock, html.gs-lock body { overflow: hidden; }
+
+.gs-root {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  overflow: hidden;
+  background: var(--gs-bg);
+  color: #f5f5f4;
+  cursor: default;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  transition: background-color 520ms var(--gs-ease-io) 60ms;
+}
+
+/* faint engineering grid + graphite vignette */
+.gs-grid {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 60% 45% at 50% 40%, rgba(42, 52, 68, .32), transparent 70%),
+    linear-gradient(rgba(130, 150, 180, .045) 1px, transparent 1px) 0 0 / 32px 32px,
+    linear-gradient(90deg, rgba(130, 150, 180, .045) 1px, transparent 1px) 0 0 / 32px 32px;
+  -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 42%, #000 30%, transparent 85%);
+  mask-image: radial-gradient(ellipse 70% 60% at 50% 42%, #000 30%, transparent 85%);
+  animation: gs-fade-in 700ms ease-out both;
+  transition: opacity 400ms ease;
+}
+
+.gs-stage {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 16px 16px calc(9vh + env(safe-area-inset-bottom, 0px));
+}
+
+.gs-mark {
+  position: relative;
+  width: clamp(128px, min(44vw, 30vh), 208px);
+  aspect-ratio: 1;
+  flex: 0 0 auto;
+  transform-origin: 50% 50%;
+  will-change: transform;
+}
+.gs-svg { display: block; width: 100%; height: 100%; overflow: visible; }
+
+/* ---------- 1–3  telemetry pulse ---------- */
+.gs-pulse path { fill: none; stroke-linecap: round; stroke-linejoin: round; }
+.gs-trail {
+  stroke: var(--gs-orange);
+  stroke-width: 1.4;
+  stroke-dasharray: var(--len) var(--len);
+  opacity: 0;
+  animation:
+    gs-draw 1100ms var(--gs-ease-io) 150ms both,
+    gs-trail-life 2350ms linear both;
+}
+.gs-comet {
+  stroke-dasharray: var(--comet) var(--len);
+  opacity: 0;
+  animation:
+    gs-comet 1100ms var(--gs-ease-io) 150ms both,
+    gs-comet-life 1450ms linear both;
+}
+.gs-comet--halo { stroke: rgba(255, 107, 26, .22); stroke-width: 7; }
+.gs-comet--core { stroke: #ffb48a; stroke-width: 2; }
+
+/* ---------- wireframe of the mark ---------- */
+.gs-wire {
+  fill: none;
+  opacity: 0;
+  animation: gs-wire-life 2350ms linear both;
+}
+.gs-w {
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: var(--len) var(--len);
+}
+.gs-w--loop { stroke: var(--gs-orange); stroke-width: 1.6; animation: gs-draw 340ms cubic-bezier(.3,.4,.3,1) 960ms both; }
+.gs-w--ring { stroke: var(--gs-orange); stroke-width: 1.8; animation: gs-draw 760ms var(--gs-ease-io) 1000ms both; }
+.gs-w--diag { stroke: var(--gs-orange); stroke-width: 1.8; animation: gs-draw 520ms var(--gs-ease-io) 950ms both; }
+.gs-w--top  { stroke: var(--gs-orange); stroke-width: 1.5; animation: gs-draw 320ms ease-out 1640ms both; }
+.gs-w--trace {
+  stroke: var(--gs-orange-dark);
+  stroke-width: 1.3;
+  animation: gs-draw 220ms ease-out calc(1300ms + var(--i) * 55ms) both;
+}
+.gs-w--node {
+  stroke: var(--gs-orange-dark);
+  stroke-width: 1.3;
+  animation: gs-draw 280ms ease-out calc(1440ms + var(--i) * 55ms) both;
+}
+
+/* ---------- 4  data points / pings ---------- */
+.gs-dot {
+  fill: var(--gs-orange);
+  opacity: 0;
+  animation: gs-dot 900ms var(--gs-ease-out) var(--d) both;
+}
+.gs-ping {
+  fill: none;
+  stroke: var(--gs-orange);
+  stroke-width: 1;
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: gs-ping 760ms ease-out var(--d) both;
+}
+
+.gs-labels { list-style: none; margin: 0; padding: 0; }
+.gs-label {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  direction: ltr;
+  font: 600 9.5px/1 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  letter-spacing: .14em;
+  color: var(--gs-steel);
+  opacity: 0;
+  animation: gs-label 900ms linear calc(1300ms + var(--i) * 90ms) both;
+}
+.gs-label--start { right: calc(100% + 10px); flex-direction: row-reverse; }
+.gs-label--end   { left: calc(100% + 10px); }
+.gs-label__dot { width: 4px; height: 4px; border-radius: 50%; background: var(--gs-orange); flex: 0 0 auto; }
+@media (max-width: 340px) { .gs-labels { display: none; } }
+
+/* ---------- 5  solid mark ---------- */
+.gs-fill {
+  fill: var(--gs-orange);
+  animation: gs-solidify 420ms var(--gs-ease-out) 1950ms both;
+  transition: fill 300ms ease;
+}
+.gs-glow {
+  fill: var(--gs-orange);
+  opacity: .26;
+  animation: gs-glow 1000ms ease-out 1950ms both;
+  transition: opacity 300ms ease;
+}
+
+/* ---------- 6–7  text ---------- */
+.gs-text {
+  margin-top: clamp(22px, 4.2vh, 36px);
+  text-align: center;
+  transition: opacity 220ms ease, transform 260ms ease;
+}
+.gs-en {
+  margin: 0;
+  font-size: clamp(11px, 3vw, 13px);
+  font-weight: 700;
+  letter-spacing: .34em;
+  padding-left: .34em; /* optically centre tracked caps */
+  color: #e9e9ec;
+  animation: gs-track-in 520ms var(--gs-ease-out) 2150ms both;
+}
+.gs-rule {
+  display: block;
+  width: 36px;
+  height: 1px;
+  margin: 12px auto 11px;
+  background: linear-gradient(90deg, transparent, var(--gs-orange), transparent);
+  animation: gs-rule 380ms var(--gs-ease-out) 2300ms both;
+}
+.gs-fa {
+  margin: 0;
+  font-size: clamp(13px, 3.6vw, 15px);
+  font-weight: 500;
+  color: #9a9ca3;
+  animation: gs-rise 480ms var(--gs-ease-out) 2350ms both;
+}
+
+/* ---------- skip ---------- */
+.gs-skip {
+  position: absolute;
+  left: 50%;
+  bottom: calc(18px + env(safe-area-inset-bottom, 0px));
+  transform: translateX(-50%);
+  padding: 9px 18px;
+  border: 1px solid rgba(255, 255, 255, .08);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .03);
+  color: #8b8e95;
+  font-size: 13px;
+  animation: gs-fade-in 400ms ease 500ms both;
+  transition: color 150ms ease, border-color 150ms ease, opacity 200ms ease;
+}
+.gs-skip:hover { color: #f5f5f4; border-color: rgba(255, 107, 26, .4); }
+
+/* ---------- 8  hand-off to the login card ---------- */
+.gs-root.is-handoff { background-color: rgba(21, 21, 23, 0); pointer-events: none; }
+.gs-root.is-handoff .gs-grid,
+.gs-root.is-handoff .gs-skip { opacity: 0; }
+.gs-root.is-handoff .gs-text { opacity: 0; transform: translateY(6px); }
+.gs-root.is-handoff .gs-glow { opacity: 0; }
+.gs-root.is-handoff .gs-labels,
+.gs-root.is-handoff .gs-particles,
+.gs-root.is-handoff .gs-pulse,
+.gs-root.is-handoff .gs-wire { display: none; }
+
+/* skipped: jump to the final frame, then hand off quickly */
+.gs-root.is-skipped *,
+.gs-root.is-skipped *::before,
+.gs-root.is-skipped *::after { animation: none !important; }
+
+/* reduced motion: static brand frame, opacity-only cross-fade, no flight */
+.gs-root.is-reduced { animation: gs-fade-in 260ms ease both; }
+.gs-root.is-reduced * { animation: none !important; }
+.gs-root.is-reduced .gs-labels,
+.gs-root.is-reduced .gs-particles,
+.gs-root.is-reduced .gs-pulse,
+.gs-root.is-reduced .gs-wire { display: none; }
+.gs-root.is-reduced.is-handoff { opacity: 0; transition: opacity 340ms ease; }
+
+@media (prefers-reduced-motion: reduce) {
+  .gs-root *, .gs-root *::before, .gs-root *::after { animation: none !important; transition: none !important; }
+  .gs-labels, .gs-particles, .gs-pulse, .gs-wire { display: none; }
+}
+
+/* ---------- keyframes ---------- */
+@keyframes gs-fade-in { from { opacity: 0; } }
+@keyframes gs-draw { from { stroke-dashoffset: var(--len); } to { stroke-dashoffset: 0; } }
+@keyframes gs-comet {
+  from { stroke-dashoffset: var(--comet); }
+  to { stroke-dashoffset: calc(var(--comet) - var(--len)); }
+}
+@keyframes gs-comet-life { 0% { opacity: 0; } 12% { opacity: 1; } 84% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes gs-trail-life { 0% { opacity: .95; } 53% { opacity: .95; } 66% { opacity: .38; } 84% { opacity: .38; } 100% { opacity: 0; } }
+@keyframes gs-wire-life { 0% { opacity: 1; } 84% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes gs-dot {
+  0% { opacity: 0; transform: translate(0, 0); }
+  25% { opacity: .9; }
+  100% { opacity: 0; transform: translate(var(--dx), var(--dy)); }
+}
+@keyframes gs-ping { 0% { opacity: 0; transform: scale(1); } 1% { opacity: .75; } 100% { opacity: 0; transform: scale(2.6); } }
+@keyframes gs-label { 0% { opacity: 0; } 18% { opacity: .9; } 30% { opacity: .55; } 40% { opacity: .9; } 80% { opacity: .9; } 100% { opacity: 0; } }
+@keyframes gs-solidify { from { opacity: 0; } to { opacity: 1; } }
+@keyframes gs-glow { 0% { opacity: 0; } 35% { opacity: .55; } 100% { opacity: .26; } }
+@keyframes gs-track-in { from { opacity: 0; letter-spacing: .52em; transform: translateY(5px); } }
+@keyframes gs-rule { from { opacity: 0; transform: scaleX(0); } }
+@keyframes gs-rise { from { opacity: 0; transform: translateY(6px); } }
