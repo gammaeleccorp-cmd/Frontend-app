@@ -1,9 +1,11 @@
-export default function GammaLogo({ small = false }) {
+export default function GammaLogo() {
   return (
-    <img
-      src="/logo-symbol.png"
-      alt="Gamma"
-      className={`brand-logo${small ? " small-logo" : ""}`}
-    />
+    <div className="brand-logo-slot">
+      <img
+        src="/logo-symbol.png"
+        alt="Gamma"
+        className="brand-logo"
+      />
+    </div>
   );
 }

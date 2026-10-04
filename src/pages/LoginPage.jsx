@@ -4,6 +4,9 @@ export default function LoginPage({
   mobile,
   onMobileChange,
   onSubmit,
+  rememberMe = false,
+  onRememberMeChange,
+  onRegister,
   loading = false,
   error = "",
 }) {
@@ -41,6 +44,16 @@ export default function LoginPage({
 
         {error && <div className="form-error" role="alert">{error}</div>}
 
+        <label className="check-row">
+          <input
+            type="checkbox"
+            checked={rememberMe}
+            onChange={(event) => onRememberMeChange(event.target.checked)}
+            disabled={loading}
+          />
+          <span>من را به خاطر بسپار</span>
+        </label>
+
         <button
           className="primary-btn full-btn"
           type="button"
@@ -48,6 +61,9 @@ export default function LoginPage({
           onClick={onSubmit}
         >
           {loading ? "در حال ارسال..." : "دریافت کد یکبار مصرف"}
+        </button>
+        <button className="link-btn auth-switch" type="button" disabled={loading} onClick={onRegister}>
+          ثبت‌نام
         </button>
       </section>
     </main>

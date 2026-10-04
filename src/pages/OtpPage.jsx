@@ -1,10 +1,10 @@
 import GammaLogo from "../components/GammaLogo";
 import OtpInput from "../components/OtpInput";
-
-const OTP_LENGTH = 6;
+import { OTP_LENGTH } from "../config/auth";
 
 export default function OtpPage({
   mobile,
+  flow = "login",
   code,
   onCodeChange,
   onVerify,
@@ -17,8 +17,8 @@ export default function OtpPage({
   return (
     <main className="shell center auth-shell">
       <section className="auth-card">
-        <GammaLogo small />
-        <p className="eyebrow">VERIFICATION</p>
+        <GammaLogo />
+        <p className="eyebrow">{flow === "registration" ? "REGISTRATION" : "VERIFICATION"}</p>
         <h1>تأیید شماره</h1>
 
         <p className="muted">
@@ -26,7 +26,6 @@ export default function OtpPage({
         </p>
 
         <OtpInput
-          length={OTP_LENGTH}
           onChange={onCodeChange}
           onComplete={onCodeChange}
         />

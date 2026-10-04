@@ -12,9 +12,7 @@ export default function RoutesPage({
   onSync,
   syncing = false,
 }) {
-  const safePoints = routePoints.length
-    ? routePoints
-    : [[35.709, 51.405]];
+  const safePoints = routePoints;
 
   const lastPoint = safePoints[safePoints.length - 1];
   const latest = routeHistory[0];
@@ -31,18 +29,7 @@ export default function RoutesPage({
 
       <section className="panel map-panel">
         <div className="map-wrap full-map">
-          <MapContainer
-            center={lastPoint}
-            zoom={13}
-            scrollWheelZoom={false}
-          >
-            <TileLayer
-              attribution="&copy; OpenStreetMap contributors"
-              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            />
-            {safePoints.length > 1 && <Polyline positions={safePoints} />}
-            <CircleMarker center={lastPoint} radius={10} />
-          </MapContainer>
+          {lastPoint ? <MapContainer center={lastPoint} zoom={13} scrollWheelZoom={false}><TileLayer attribution="&copy; OpenStreetMap contributors" url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />{safePoints.length > 1 && <Polyline positions={safePoints} />}<CircleMarker center={lastPoint} radius={10} /></MapContainer> : <div className="empty-state">هنوز موقعیت واقعی از دستگاه دریافت نشده است.</div>}
         </div>
 
         <div className="route-summary">

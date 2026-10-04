@@ -136,8 +136,8 @@ function NegahbanHome({ data, onNavigate }) {
       <StatusHero
         icon={<Navigation size={42} />}
         label="وضعیت ردیاب"
-        title="آنلاین و در حال ارسال"
-        subtitle="آخرین داده از سرور دریافت شده است"
+        title={data.negahbanStatus?.online ? "آنلاین و در حال ارسال" : "آفلاین"}
+        subtitle={data.negahbanStatus?.online ? "آخرین داده از دستگاه دریافت شده است" : "دستگاه اخیراً داده‌ای ارسال نکرده است"}
       />
 
       <section className="metrics">

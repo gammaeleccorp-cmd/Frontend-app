@@ -1,11 +1,11 @@
 import { apiRequest, clearTokens, setTokens } from "./client";
 import { endpoints } from "../config/endpoints";
 
-export async function requestOtp(mobile) {
+export async function requestOtp(mobile, registration) {
   return apiRequest(endpoints.auth.requestOtp, {
     method: "POST",
     auth: false,
-    body: { mobile },
+    body: registration ? { mobile, registration } : { mobile },
   });
 }
 
@@ -35,6 +35,10 @@ export async function verifyOtp(mobile, code) {
 
 export async function getMe() {
   return apiRequest(endpoints.auth.me);
+}
+
+export async function updateMe(changes) {
+  return apiRequest(endpoints.auth.me, { method: "PATCH", body: changes });
 }
 
 export function logout() {

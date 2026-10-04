@@ -1,11 +1,14 @@
 import { Bluetooth, Car, Cpu, Fingerprint, Wifi } from "lucide-react";
+import { useState } from "react";
 import PageHeader from "../components/PageHeader";
 import StatusBadge from "../components/StatusBadge";
 import VehicleLocation from "../components/VehicleLocation";
 import { PRODUCTS } from "../data/mockData";
 
-export default function VehiclePage({ product, vehicle, onBack }) {
+export default function VehiclePage({ product, vehicle, onBack, onUpdate }) {
   const luminen = product === PRODUCTS.LUMINEN;
+  const [form, setForm] = useState({ model: vehicle?.model || "", color: vehicle?.color || "", production_year: vehicle?.production_year || vehicle?.year || "", license_plate: vehicle?.plate || "" });
+  const [saving, setSaving] = useState(false);
 
   return (
     <section className="page-section">
@@ -36,6 +39,15 @@ export default function VehiclePage({ product, vehicle, onBack }) {
           label="نوع دستگاه"
           value={luminen ? "Luminen OBD" : "Negahban Tracker"}
         />
+      </section>
+
+      <section className="panel">
+        <div className="section-title"><h3>ویرایش اطلاعات خودرو</h3></div>
+        <label><span>مدل</span><input value={form.model} onChange={(event) => setForm({ ...form, model: event.target.value })} disabled={saving} /></label>
+        <label><span>رنگ</span><input value={form.color} onChange={(event) => setForm({ ...form, color: event.target.value })} disabled={saving} /></label>
+        <label><span>سال تولید</span><input value={form.production_year} onChange={(event) => setForm({ ...form, production_year: event.target.value })} inputMode="numeric" dir="ltr" disabled={saving} /></label>
+        <label><span>پلاک</span><input value={form.license_plate} onChange={(event) => setForm({ ...form, license_plate: event.target.value })} disabled={saving} /></label>
+        <button type="button" className="primary-btn" disabled={saving} onClick={async () => { setSaving(true); try { await onUpdate(form); } finally { setSaving(false); } }}>{saving ? "در حال ذخیره..." : "ذخیره تغییرات"}</button>
       </section>
 
       <VehicleLocation key={vehicle?.id || "no-vehicle"} vehicleId={vehicle?.id} />

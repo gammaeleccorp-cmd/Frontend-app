@@ -1,6 +1,8 @@
 import { useRef, useState } from "react";
+import { OTP_LENGTH } from "../config/auth";
 
-export default function OtpInput({ length, onChange, onComplete }) {
+export default function OtpInput({ onChange, onComplete }) {
+  const length = OTP_LENGTH;
   const [digits, setDigits] = useState(() => Array(length).fill(""));
   const inputsRef = useRef([]);
 
@@ -46,7 +48,11 @@ export default function OtpInput({ length, onChange, onComplete }) {
   };
 
   return (
-    <div className="otp-row" onPaste={handlePaste}>
+    <div
+      className="otp-row"
+      style={{ "--otp-length": length }}
+      onPaste={handlePaste}
+    >
       {digits.map((digit, index) => (
         <input
           key={index}

@@ -14,5 +14,11 @@ export const endpoints = {
   },
   devices: {
     list: "/api/v1/devices/",
+    validate: "/api/v1/devices/validate/",
+    activate: "/api/v1/devices/activate/",
+  },
+  telemetry: {
+    latest: (vehicleId) => `/api/v1/telemetry/vehicles/${vehicleId}/latest/`,
+    history: (vehicleId) => `/api/v1/telemetry/vehicles/${vehicleId}/history/`,
   },
 };

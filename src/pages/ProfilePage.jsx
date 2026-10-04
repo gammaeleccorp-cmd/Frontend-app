@@ -9,10 +9,13 @@ export default function ProfilePage({
   onTestBackend,
   onBack,
   onLogout,
+  onUpdate,
   onSetting,
 }) {
   const [checking, setChecking] = useState(false);
   const [backend, setBackend] = useState(null);
+  const [form, setForm] = useState({ first_name: user?.firstName || "", last_name: user?.lastName || "", birth_date: user?.birthDate || "" });
+  const [saving, setSaving] = useState(false);
 
   const test = async () => {
     setChecking(true);
@@ -69,6 +72,15 @@ export default function ProfilePage({
           subtitle="زبان، واحدها و نمایش"
           onClick={() => onSetting("تنظیمات برنامه")}
         />
+      </section>
+
+      <section className="panel">
+        <div className="section-title"><h3>اطلاعات شخصی</h3></div>
+        <label><span>نام</span><input value={form.first_name} onChange={(event) => setForm({ ...form, first_name: event.target.value })} disabled={saving} /></label>
+        <label><span>نام خانوادگی</span><input value={form.last_name} onChange={(event) => setForm({ ...form, last_name: event.target.value })} disabled={saving} /></label>
+        <label><span>تاریخ تولد</span><input type="date" value={form.birth_date || ""} onChange={(event) => setForm({ ...form, birth_date: event.target.value })} disabled={saving} /></label>
+        <p className="muted">موبایل: <span dir="ltr">{user?.mobile || "—"}</span> · کد ملی: {user?.nationalId || "—"}</p>
+        <button type="button" className="primary-btn" disabled={saving} onClick={async () => { setSaving(true); try { await onUpdate(form); } catch (error) { setBackend({ reachable: false, status: error?.status || 0, message: error?.message }); } finally { setSaving(false); } }}>{saving ? "در حال ذخیره..." : "ذخیره اطلاعات"}</button>
       </section>
 
       <section className="panel backend-test-card">

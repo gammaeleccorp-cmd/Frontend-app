@@ -1,7 +1,67 @@
 export const PRODUCTS = {
-  LUMINEN: "luminen",
-  NEGAHBAN: "negahban",
+  RAHBAN: "RAHBAN",
+  NEGAHBAN: "NEGAHBAN",
+  // Compatibility alias for existing telematics/diagnostics code.
+  LUMINEN: "RAHBAN",
 };
+
+export const MOCK_VEHICLES = [
+  { id: "vehicle-ng-01", plate_number: "12الف345-67", vin: "WVWZZZ1JZXW000001", model: "پژو ۲۰۶", color: "سفید", production_year: 1402 },
+  { id: "vehicle-rh-01", plate_number: "34ب567-89", vin: "IR206GAMMA0241VIN", model: "پژو ۲۰۶", color: "خاکستری", production_year: 1403 },
+  { id: "vehicle-both-01", plate_number: "56ج789-01", vin: "WVWZZZ1JZXW000002", model: "دنا", color: "مشکی", production_year: 1404 },
+];
+
+export const MOCK_DEVICES = [
+  { device_code: "NG-04", serial: "NG-04-0001", product_type: PRODUCTS.NEGAHBAN, vehicle_id: MOCK_VEHICLES[0].id, assigned_mobile: "09120000001" },
+  { device_code: "NG-05", serial: "NG-05-0001", product_type: PRODUCTS.NEGAHBAN },
+  { device_code: "RH-04", serial: "RH-04-0001", product_type: PRODUCTS.RAHBAN, vehicle_id: MOCK_VEHICLES[1].id, assigned_mobile: "09120000002" },
+  { device_code: "RH-05", serial: "RH-05-0001", product_type: PRODUCTS.RAHBAN },
+  { device_code: "GAMMA-0241", serial: "GAMMA-0241", product_type: PRODUCTS.RAHBAN },
+];
+
+export const MOCK_USERS = [
+  {
+    id: "mock-negahban-user",
+    mobile: "09120000001",
+    first_name: "کاربر",
+    last_name: "نگهبان",
+    national_id: "0012345678",
+    birth_date: "1375-01-01",
+    vehicles: [MOCK_VEHICLES[0]],
+    devices: [MOCK_DEVICES[0]],
+  },
+  {
+    id: "mock-rahban-user",
+    mobile: "09120000002",
+    first_name: "کاربر",
+    last_name: "راهبان",
+    national_id: "0012345679",
+    birth_date: "1375-01-01",
+    vehicles: [MOCK_VEHICLES[1]],
+    devices: [MOCK_DEVICES[2]],
+  },
+  {
+    id: "mock-both-user",
+    mobile: "09120000003",
+    first_name: "کاربر",
+    last_name: "دو محصولی",
+    national_id: "0012345686",
+    birth_date: "1375-01-01",
+    vehicles: [MOCK_VEHICLES[0], MOCK_VEHICLES[1]],
+    devices: [MOCK_DEVICES[0], MOCK_DEVICES[2]],
+  },
+];
+
+export function normalizeProductType(productType) {
+  const normalized = productType?.toLowerCase?.();
+  if (["luminen", "rahban"].includes(normalized)) return PRODUCTS.RAHBAN;
+  if (normalized === "negahban") return PRODUCTS.NEGAHBAN;
+  return productType;
+}
+
+export function getUserProducts(user) {
+  return [...new Set((user?.devices || []).map((device) => normalizeProductType(device.product_type)))];
+}
 
 export const VIEWS = {
   HOME: "home",
