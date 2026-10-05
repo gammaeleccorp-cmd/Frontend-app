@@ -3,20 +3,10 @@ import { useReducedMotion } from "framer-motion";
 import GammaMark from "../brand/GammaMark";
 import GammaOrbit from "../motion/GammaOrbit";
 
-const STORAGE_KEY = "gamma_welcome_seen";
 const HOLD_MS = 1500;
 const FADE_MS = 300;
 const REDUCED_HOLD_MS = 120;
 const REDUCED_FADE_MS = 160;
-
-export function shouldPlayIntro() {
-  if (typeof window === "undefined") return false;
-  try {
-    return window.sessionStorage.getItem(STORAGE_KEY) !== "true";
-  } catch {
-    return true;
-  }
-}
 
 export default function GammaSplash({ onReveal, onFinish }) {
   const reduced = useReducedMotion();
@@ -25,10 +15,6 @@ export default function GammaSplash({ onReveal, onFinish }) {
   callbacks.current = { onReveal, onFinish };
 
   useEffect(() => {
-    try {
-      window.sessionStorage.setItem(STORAGE_KEY, "true");
-    } catch { /* Storage may be unavailable in private mode. */ }
-
     const revealTimer = window.setTimeout(() => {
       setFading(true);
       callbacks.current.onReveal?.();
