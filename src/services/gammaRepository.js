@@ -431,7 +431,7 @@ export async function resendOtp({ flow = "login", mobile, registration }) {
     await sleep(250);
     return { ok: true, mobile };
   }
-  return authApi.requestOtp(flow === "registration" ? registration.mobile : mobile);
+  return flow === "registration" ? requestRegistrationOtp(registration) : authApi.requestOtp(mobile);
 }
 
 export function logout() {
