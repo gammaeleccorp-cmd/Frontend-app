@@ -54,13 +54,8 @@ button, input { -webkit-tap-highlight-color: transparent; }
 .center { display: grid; place-items: center; }
 .auth-shell { min-height: 100dvh; padding-bottom: 24px; }
 .auth-lead { line-height: 1.85; margin-bottom: 0; }
+.auth-shell[data-intro] .auth-card { transition: opacity 300ms ease; }
 .auth-shell[data-intro="playing"] .auth-card { opacity: 0; }
-.auth-shell[data-intro="playing"] .brand-logo__mark,
-.auth-shell[data-intro="reveal"] .brand-logo__mark { visibility: hidden; }
-.auth-shell[data-intro="reveal"] .auth-card { animation: auth-card-in 460ms cubic-bezier(.22, 1, .36, 1) 60ms both; }
-.auth-shell[data-intro="reveal"] .auth-card > :not(.brand-logo) { animation: auth-item-in 520ms cubic-bezier(.22, 1, .36, 1) both; animation-delay: calc(140ms + var(--i, 0) * 40ms); }
-@keyframes auth-card-in { from { opacity: 0; } }
-@keyframes auth-item-in { from { opacity: 0; transform: translateY(8px); } }
 
 .auth-card {
   width: min(100%, 420px);
