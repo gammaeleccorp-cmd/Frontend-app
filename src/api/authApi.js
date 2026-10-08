@@ -1,11 +1,11 @@
 import { apiRequest, clearTokens, setTokens } from "./client";
 import { endpoints } from "../config/endpoints";
 
-export async function requestOtp(mobile, registration) {
+export async function requestOtp(mobile, registration, flow) {
   return apiRequest(endpoints.auth.requestOtp, {
     method: "POST",
     auth: false,
-    body: registration ? { mobile, registration } : { mobile },
+    body: { mobile, ...(registration ? { registration } : {}), ...(flow ? { flow } : {}) },
   });
 }
 

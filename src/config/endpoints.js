@@ -20,5 +20,7 @@ export const endpoints = {
   telemetry: {
     latest: (vehicleId) => `/api/v1/telemetry/vehicles/${vehicleId}/latest/`,
     history: (vehicleId) => `/api/v1/telemetry/vehicles/${vehicleId}/history/`,
+    deviceLatest: (deviceCode) => `/api/v1/telemetry/devices/${encodeURIComponent(deviceCode)}/latest/`,
+    deviceHistory: (deviceCode) => `/api/v1/telemetry/devices/${encodeURIComponent(deviceCode)}/history/`,
   },
 };

@@ -1,7 +1,6 @@
-import { Bell } from "lucide-react";
 import { PRODUCTS } from "../data/mockData";
 
-export default function AccessAppHeader({ product, vehicle, availableProducts, onProductChange, onNotify }) {
+export default function AccessAppHeader({ product, vehicle, availableProducts = [], onProductChange, online = false }) {
   const rahban = product === PRODUCTS.RAHBAN;
   const canSwitch = availableProducts.length > 1;
 
@@ -12,14 +11,10 @@ export default function AccessAppHeader({ product, vehicle, availableProducts, o
           <p className="eyebrow no-margin">GAMMA VEHICLE PLATFORM</p>
           <div className="header-title-row">
             <h1>{rahban ? "راهبان" : "نگهبان"}</h1>
-            <span className="device-dot" />
+            <span className={`device-dot${online ? "" : " offline"}`} aria-hidden="true" />
           </div>
-          <span className="muted">{vehicle?.name || "خودرو"} • دستگاه {vehicle?.deviceSerial || "—"}</span>
+          <span className="muted">{vehicle?.deviceCode ? `دستگاه ${vehicle.deviceCode}` : "هنوز دستگاهی متصل نیست"}</span>
         </div>
-        <button type="button" className="icon-btn notification-btn" aria-label="اعلان‌ها" onClick={onNotify}>
-          <Bell size={20} />
-          <span className="notification-dot" />
-        </button>
       </div>
       {canSwitch && <div className="product-switch" aria-label="انتخاب محصول">
         <button type="button" className={rahban ? "active" : ""} onClick={() => onProductChange(PRODUCTS.RAHBAN)}>راهبان</button>

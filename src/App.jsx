@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState } from "react";
+import { Component, lazy, Suspense, useEffect, useState } from "react";
 import { BrowserRouter, Navigate, Outlet, Route, Routes, useLocation, useNavigate, useOutletContext, useParams } from "react-router-dom";
 import AppHeader from "./components/AccessAppHeader";
 import BottomNav from "./components/BottomNav";
@@ -18,17 +18,28 @@ import ConnectionPage from "./pages/ConnectionPage";
 import ProfilePage from "./pages/ProfilePage";
 import PageTransition from "./components/motion/PageTransition";
 import { getUserProducts, normalizeProductType, PRODUCTS } from "./data/mockData";
-import { isValidIranianNationalId } from "./utils/validation";
+import { normalizeDigits } from "./utils/validation";
+import { jalaliToIso } from "./utils/jalali.mjs";
+import { isTelemetryFresh } from "./utils/telemetry.mjs";
 import GammaSplash from "./components/splash/GammaSplash";
 import * as repo from "./services/gammaRepository";
 
 const LazyRoutesPage = lazy(() => import("./pages/RoutesPage"));
 function RoutesPage(props) {
-  return <Suspense fallback={<StateMessage loading message="در حال بارگذاری نقشه..." />}><LazyRoutesPage {...props} /></Suspense>;
+  return <RouteErrorBoundary><Suspense fallback={<StateMessage loading message="در حال بارگذاری نقشه..." />}><LazyRoutesPage {...props} /></Suspense></RouteErrorBoundary>;
+}
+
+class RouteErrorBoundary extends Component {
+  state = { failed: false };
+  static getDerivedStateFromError() { return { failed: true }; }
+  render() {
+    if (this.state.failed) return <section className="panel"><div className="form-error" role="alert">نقشه بارگذاری نشد.</div><button className="secondary-btn" type="button" onClick={() => window.location.reload()}>تلاش مجدد</button></section>;
+    return this.props.children;
+  }
 }
 
 export default function App() {
-  return <BrowserRouter><Routes><Route path="/login" element={<LoginRoute />} /><Route path="/register" element={<RegisterRoute />} /><Route path="/otp" element={<OtpRoute />} /><Route element={<ProtectedLayout />}><Route path="/home" element={<HomeRoute />} /><Route path="/vehicle" element={<VehicleRoute />} /><Route path="/profile" element={<ProfileRoute />} /><Route path="/diagnostics" element={<DiagnosticsRoute />} /><Route path="/diagnostics/:code" element={<DtcRoute />} /><Route path="/ecu-live" element={<EcuRoute />} /><Route path="/connection" element={<ConnectionRoute />} /><Route path="/ota" element={<OtaRoute />} /><Route path="/routes" element={<RoutesRoute />} /><Route path="/imu-events" element={<MpuRoute />} /></Route><Route path="*" element={<Navigate to="/home" replace />} /></Routes></BrowserRouter>;
+  return <BrowserRouter><Routes><Route path="/login" element={<LoginRoute />} /><Route path="/register" element={<RegisterRoute />} /><Route path="/otp" element={<OtpRoute />} /><Route element={<ProtectedLayout />}><Route path="/home" element={<HomeRoute />} /><Route path="/add-device" element={<AddDeviceRoute />} /><Route path="/vehicle" element={<VehicleRoute />} /><Route path="/profile" element={<ProfileRoute />} /><Route path="/diagnostics" element={<DiagnosticsRoute />} /><Route path="/diagnostics/:code" element={<DtcRoute />} /><Route path="/ecu-live" element={<EcuRoute />} /><Route path="/connection" element={<ConnectionRoute />} /><Route path="/ota" element={<OtaRoute />} /><Route path="/routes" element={<RoutesRoute />} /><Route path="/imu-events" element={<MpuRoute />} /></Route><Route path="*" element={<Navigate to="/home" replace />} /></Routes></BrowserRouter>;
 }
 
 function LoginRoute() {
@@ -54,71 +65,38 @@ function LoginRoute() {
 
 function RegisterRoute() {
   const navigate = useNavigate();
-  const [form, setForm] = useState({ mobile: "", firstName: "", lastName: "", nationalId: "", birthDate: "", serial: "", vehicle: { plate_number: "", vin: "", model: "", color: "", production_year: "" } });
+  const location = useLocation();
+  const [form, setForm] = useState(() => location.state?.registration || { mobile: location.state?.mobile || "", firstName: "", lastName: "", birthDate: "", deviceModel: "" });
   const [rememberMe, setRememberMe] = useState(false);
-  const [serialState, setSerialState] = useState("idle");
-  const [detectedProduct, setDetectedProduct] = useState("");
-  const [checkingSerial, setCheckingSerial] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [fieldErrors, setFieldErrors] = useState({});
   if (repo.hasSession()) return <Navigate to="/home" replace />;
 
   const changeField = (key, value) => {
-    const vehicleField = key.startsWith("vehicle.");
-    const fieldName = vehicleField ? key.slice("vehicle.".length) : key;
-    const nextValue = key === "mobile" || key === "nationalId"
-      ? value.replace(/\D/g, "").slice(0, key === "mobile" ? 11 : 10)
-      : fieldName === "production_year"
-        ? value.replace(/\D/g, "").slice(0, 4)
-        : fieldName === "vin"
-          ? value.replace(/\s/g, "").toUpperCase()
-          : fieldName === "plate_number"
-            ? value
-            : value;
-    setForm((current) => vehicleField ? { ...current, vehicle: { ...current.vehicle, [fieldName]: nextValue } } : { ...current, [key]: nextValue });
-    const errorKey = vehicleField ? `vehicle.${fieldName}` : key;
-    setFieldErrors((current) => current[errorKey] ? { ...current, [errorKey]: "" } : current);
-    if (key === "serial") { setSerialState("idle"); setDetectedProduct(""); }
-  };
-  const validateSerial = async () => {
-    if (!form.serial) { setSerialState("idle"); setFieldErrors((current) => ({ ...current, serial: "شماره سریال دستگاه معتبر نیست." })); return false; }
-    setCheckingSerial(true); setSerialState("checking"); setError("");
-    try {
-      const result = await repo.validateDeviceSerial(form.serial);
-      setSerialState(result.state);
-      setFieldErrors((current) => ({ ...current, serial: result.state === "valid" ? "" : result.state === "already_assigned" ? "این دستگاه قبلاً به حساب دیگری متصل شده است." : "شماره سریال دستگاه معتبر نیست." }));
-      setDetectedProduct(result.productType === PRODUCTS.NEGAHBAN ? "نگهبان" : "راهبان");
-      return result.state === "valid";
-    } catch (err) { setSerialState("invalid"); setFieldErrors((current) => ({ ...current, serial: err?.message || "شماره سریال دستگاه معتبر نیست." })); return false; }
-    finally { setCheckingSerial(false); }
+    const next = key === "mobile" ? normalizeDigits(value).replace(/\D/g, "").slice(0, 11)
+      : key === "birthDate" ? normalizeDigits(value).replace(/[^0-9/]/g, "").slice(0, 10) : value;
+    setForm((current) => ({ ...current, [key]: next }));
+    setFieldErrors((current) => ({ ...current, [key]: "" }));
+    setError("");
   };
   const submit = async () => {
-    const vehicle = form.vehicle;
     const nextErrors = {};
     if (!/^09\d{9}$/.test(form.mobile)) nextErrors.mobile = "شماره موبایل باید ۱۱ رقمی و با 09 شروع شود.";
     if (!form.firstName.trim()) nextErrors.firstName = "نام را وارد کنید.";
     if (!form.lastName.trim()) nextErrors.lastName = "نام خانوادگی را وارد کنید.";
-    if (!isValidIranianNationalId(form.nationalId)) nextErrors.nationalId = "کد ملی معتبر نیست.";
-    if (!form.birthDate) nextErrors.birthDate = "تاریخ تولد را وارد کنید.";
-    if (!repo.validateVehicle({ ...vehicle, plate_number: vehicle.plate_number }).valid) nextErrors["vehicle.plate_number"] = "پلاک خودرو را کامل وارد کنید.";
-    if (!/^[A-HJ-NPR-Z0-9]{17}$/.test(String(vehicle.vin || "").toUpperCase())) nextErrors["vehicle.vin"] = "VIN باید دقیقاً ۱۷ کاراکتر معتبر باشد.";
-    if (!String(vehicle.model || "").trim() || vehicle.model === "سایر") nextErrors["vehicle.model"] = "مدل خودرو را انتخاب یا وارد کنید.";
-    if (!String(vehicle.color || "").trim() || vehicle.color === "سایر") nextErrors["vehicle.color"] = "رنگ خودرو را انتخاب یا وارد کنید.";
-    if (!/^\d{4}$/.test(String(vehicle.production_year || "")) || Number(vehicle.production_year) < 1300 || Number(vehicle.production_year) > 1500) nextErrors["vehicle.production_year"] = "سال تولید معتبر را وارد کنید.";
-    if (!form.serial) nextErrors.serial = "شماره سریال دستگاه معتبر نیست.";
+    if (!jalaliToIso(form.birthDate)) nextErrors.birthDate = "تاریخ تولد شمسی معتبر با قالب yyyy/mm/dd وارد کنید.";
+    if (!["NEGAHBAN", "RAHBAN", "LUMINEN"].includes(form.deviceModel)) nextErrors.deviceModel = "مدل دستگاه را انتخاب کنید.";
     setFieldErrors(nextErrors);
     if (Object.keys(nextErrors).length) { setError("لطفاً خطاهای مشخص‌شده را برطرف کنید."); return; }
-    const validSerial = serialState === "valid" || await validateSerial();
-    if (!validSerial) return;
     setBusy(true); setError(""); setFieldErrors({});
     try {
-      const result = await repo.requestRegistrationOtp(form);
-      navigate("/otp", { state: { flow: "registration", mobile: form.mobile, rememberMe, registration: form, detectedProduct: result.productType } });
-    } catch (err) { setError(err?.message || "ارسال کد ناموفق بود."); }
+      await repo.requestRegistrationOtp(form);
+      navigate("/otp", { state: { flow: "registration", mobile: form.mobile, rememberMe, registration: form } });
+    } catch (err) { setError(err?.message || "ارسال کد ناموفق بود."); setFieldErrors(err?.payload?.registration || {}); }
     finally { setBusy(false); }
   };
-  return <RegisterPage form={form} onChange={changeField} onSerialBlur={validateSerial} serialState={serialState} detectedProduct={detectedProduct} rememberMe={rememberMe} onRememberMeChange={setRememberMe} onSubmit={submit} onLogin={() => navigate("/login")} loading={busy} checkingSerial={checkingSerial} error={error} fieldErrors={fieldErrors} />;
+  return <RegisterPage form={form} onChange={changeField} rememberMe={rememberMe} onRememberMeChange={setRememberMe} onSubmit={submit} onLogin={() => navigate("/login")} loading={busy} error={error} fieldErrors={fieldErrors} />;
 }
 
 function legacyOtpRoute() {
@@ -153,17 +131,22 @@ function OtpRoute() {
     catch (err) { setError(err?.message || "ارسال مجدد ناموفق بود."); }
     finally { setBusy(false); }
   };
-  return <OtpPage mobile={mobile} flow={flow} code={code} onCodeChange={setCode} onVerify={verify} onBack={() => navigate(flow === "registration" ? "/register" : "/login")} onResend={resend} notice={notice} loading={busy} error={error} />;
+  return <OtpPage mobile={mobile} flow={flow} code={code} onCodeChange={setCode} onVerify={verify} onBack={() => navigate(flow === "registration" ? "/register" : "/login", { state: { registration, mobile } })} onResend={resend} notice={notice} loading={busy} error={error} />;
 }
 
 function ProtectedLayout() {
   const [data, setData] = useState(null); const [loading, setLoading] = useState(true); const [error, setError] = useState("");
-  const load = async () => { if (!repo.hasSession()) { setLoading(false); return; } setLoading(true); setError(""); try { setData(await repo.getBootstrapData()); } catch (err) { setError(err?.message || "دریافت اطلاعات ناموفق بود."); } finally { setLoading(false); } };
-  useEffect(() => { load(); }, []);
+  const load = async (silent = false) => { if (!repo.hasSession()) { setLoading(false); return; } if (!silent) { setLoading(true); setError(""); } try { setData(await repo.getBootstrapData()); } catch (err) { if (!silent) setError(err?.message || "دریافت اطلاعات ناموفق بود."); } finally { if (!silent) setLoading(false); } };
+  useEffect(() => {
+    load();
+    const timer = window.setInterval(() => { if (document.visibilityState === "visible") load(true); }, 60_000);
+    const onVisible = () => { if (document.visibilityState === "visible") load(true); };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => { window.clearInterval(timer); document.removeEventListener("visibilitychange", onVisible); };
+  }, []);
   if (!repo.hasSession()) return <Navigate to="/login" replace />;
   if (loading) return <StateMessage loading message="در حال دریافت اطلاعات..." />;
-  if (error || !data) return <StateMessage error={error || "اطلاعاتی دریافت نشد."} onRetry={load} />;
-  if (data.onboardingRequired) return <DeviceOnboardingPage loading={loading} error={error} onSubmit={async (payload) => { try { await repo.bindDevice(payload); await load(); } catch (err) { setError(err?.message || "فعال‌سازی دستگاه ناموفق بود."); } }} />;
+  if (error || !data) return <StateMessage error={error || "اطلاعاتی دریافت نشد."} onRetry={() => load()} />;
   return <AppFrame data={data} setData={setData} />;
 }
 
@@ -180,27 +163,30 @@ function AppFrame({ data, setData }) {
   const location = useLocation();
   const allowedProducts = data.allowedProducts?.length ? data.allowedProducts : getUserProducts(data.user);
   const storedProduct = normalizeProductType(localStorage.getItem("gamma_product"));
-  const [product, setProduct] = useState(() => allowedProducts.includes(storedProduct) ? storedProduct : allowedProducts[0]);
+  const [product, setProduct] = useState(() => allowedProducts.includes(storedProduct) ? storedProduct : allowedProducts[0] || PRODUCTS.NEGAHBAN);
+  const [now, setNow] = useState(Date.now());
   const [toast, setToast] = useState("");
-  useEffect(() => { if (!allowedProducts.includes(product)) setProduct(allowedProducts[0]); }, [allowedProducts, product]);
+  useEffect(() => { if (allowedProducts.length && !allowedProducts.includes(product)) setProduct(allowedProducts[0]); }, [allowedProducts, product]);
+  useEffect(() => { const timer = window.setInterval(() => setNow(Date.now()), 30_000); return () => window.clearInterval(timer); }, []);
   const showToast = (message) => { setToast(message); window.setTimeout(() => setToast(""), 2400); };
   const changeProduct = (next) => { const normalized = normalizeProductType(next); if (!allowedProducts.includes(normalized)) return; localStorage.setItem("gamma_product", normalized); setProduct(normalized); navigate("/home"); };
   const logout = () => { repo.logout(); navigate("/login", { replace: true }); };
-  return <main className="app-shell"><AppHeader product={product} vehicle={data.vehicle} availableProducts={allowedProducts} onProductChange={changeProduct} onNotify={() => showToast("اعلان جدیدی وجود ندارد.")} /><PageTransition key={location.pathname} className="content-shell"><Outlet context={{ data, setData, product, allowedProducts, setProduct: changeProduct, showToast, logout }} /></PageTransition><BottomNav product={product} path={location.pathname} onNavigate={navigate} />{toast && <div className="toast" role="status">{toast}</div>}</main>;
+  return <main className="app-shell"><AppHeader product={product} vehicle={data.vehicle} availableProducts={allowedProducts} onProductChange={changeProduct} online={isTelemetryFresh(data.latestTelemetry, now)} /><PageTransition key={location.pathname} className="content-shell"><Outlet context={{ data, setData, product, now, allowedProducts, setProduct: changeProduct, showToast, logout }} /></PageTransition><BottomNav product={product} path={location.pathname} onNavigate={navigate} />{toast && <div className="toast" role="status">{toast}</div>}</main>;
 }
 
 function useApp() { return useOutletContext(); }
 function useBack(fallback = "/home") { const navigate = useNavigate(); return () => { if (window.history.state?.idx > 0) navigate(-1); else navigate(fallback); }; }
-function HomeRoute() { const { data, product } = useApp(); const navigate = useNavigate(); return <HomePage product={product} data={data} onNavigate={navigate} onDtcOpen={(dtc) => navigate(`/diagnostics/${dtc.code}`, { state: { dtc } })} />; }
-function VehicleRoute() { const { data, product, setData, showToast } = useApp(); const update = async (changes) => { const raw = await repo.updateVehicle(data.vehicle.id, changes); setData((current) => ({ ...current, vehicle: { ...current.vehicle, ...raw, model: raw.model, year: String(raw.production_year || "—"), plate: raw.license_plate, color: raw.color } })); showToast("اطلاعات خودرو ذخیره شد."); }; return <VehiclePage product={product} vehicle={data.vehicle} onUpdate={update} onBack={useBack()} />; }
+function HomeRoute() { const { data, product, now } = useApp(); const navigate = useNavigate(); if (!data.devices?.length) return <section className="panel dashboard-empty"><h2>داشبورد گاما</h2><p>حساب شما آماده است. دستگاه را با کد عمومی آن متصل کنید.</p><p className="muted">اطلاعات خودرو اختیاری است.</p><button className="primary-btn" type="button" onClick={() => navigate("/add-device")}>افزودن دستگاه</button><button className="link-btn" type="button" onClick={() => navigate("/profile")}>پروفایل من</button></section>; return <><div className="home-actions"><button className="secondary-btn" type="button" onClick={() => navigate("/add-device")}>افزودن دستگاه</button></div><HomePage product={product} data={data} now={now} onNavigate={(path) => navigate(path.startsWith("/") ? path : `/${path}`)} onDtcOpen={(dtc) => navigate(`/diagnostics/${dtc.code}`, { state: { dtc } })} /></>; }
+function AddDeviceRoute() { const { setData } = useApp(); const navigate = useNavigate(); const [busy, setBusy] = useState(false); const [error, setError] = useState(""); const submit = async (payload) => { setBusy(true); setError(""); try { await repo.bindDevice(payload); setData(await repo.getBootstrapData()); navigate("/home"); } catch (err) { setError(err?.message || "اتصال دستگاه ناموفق بود."); } finally { setBusy(false); } }; return <DeviceOnboardingPage loading={busy} error={error} onSubmit={submit} onBack={() => navigate("/home")} />; }
+function VehicleRoute() { const { data, product, now, setData, showToast } = useApp(); const navigate = useNavigate(); const update = async (changes) => { if (!data.vehicle?.id) return; const raw = await repo.updateVehicle(data.vehicle.id, changes); setData((current) => ({ ...current, vehicle: { ...current.vehicle, ...raw, model: raw.model, year: String(raw.production_year || "—"), plate: raw.license_plate, color: raw.color } })); showToast("اطلاعات خودرو ذخیره شد."); }; return <VehiclePage product={product} data={data} now={now} onUpdate={update} onRoutes={() => navigate("/routes")} onBack={useBack()} />; }
 function DiagnosticsRoute() { const { product, data } = useApp(); const navigate = useNavigate(); if (product !== PRODUCTS.LUMINEN) return <Navigate to="/home" replace />; return <DiagnosticsPage dtcs={data.dtcs} onBack={() => navigate("/home")} onOpenDtc={(dtc) => navigate(`/diagnostics/${dtc.code}`, { state: { dtc } })} />; }
 function DtcRoute() { const { product, data } = useApp(); const { code } = useParams(); const location = useLocation(); const back = useBack("/diagnostics"); if (product !== PRODUCTS.LUMINEN) return <Navigate to="/home" replace />; const dtc = location.state?.dtc || data.dtcs.find((item) => item.code === code); return <DtcDetailPage dtc={dtc} onBack={back} />; }
 function EcuRoute() { const { product, data, setData, showToast } = useApp(); const back = useBack(); const [refreshing, setRefreshing] = useState(false); if (product !== PRODUCTS.LUMINEN) return <Navigate to="/home" replace />; const refresh = async () => { setRefreshing(true); try { setData(await repo.refreshLiveData()); showToast("داده‌های ECU به‌روزرسانی شد."); } catch { showToast("به‌روزرسانی داده‌های ECU ناموفق بود."); } finally { setRefreshing(false); } }; return <EcuLivePage parameters={data.ecuParameters} onRefresh={refresh} refreshing={refreshing} onBack={back} />; }
 function ConnectionRoute() { const { product, data, setData, showToast } = useApp(); const back = useBack(); if (product !== PRODUCTS.LUMINEN) return <Navigate to="/home" replace />; return <ConnectionPage connection={data.connection} onChange={(connection) => setData((current) => ({ ...current, connection }))} onNotify={showToast} onBack={back} />; }
 function OtaRoute() { const { product, data } = useApp(); const back = useBack(); if (product !== PRODUCTS.LUMINEN) return <Navigate to="/home" replace />; return <OtaPage vehicle={data.vehicle} onCheck={repo.checkOta} onBack={back} />; }
-function RoutesRoute() { const { product, data, setData, showToast } = useApp(); const back = useBack(); const [syncing, setSyncing] = useState(false); if (product !== PRODUCTS.NEGAHBAN) return <Navigate to="/home" replace />; const sync = async () => { setSyncing(true); try { const fresh = await repo.syncNegahban(); setData(fresh); showToast("اطلاعات واقعی به‌روزرسانی شد."); } catch { showToast("به‌روزرسانی ناموفق بود."); } finally { setSyncing(false); } }; return <RoutesPage routePoints={data.routePoints} routeHistory={data.routeHistory} negahbanStatus={data.negahbanStatus} onSync={sync} syncing={syncing} onBack={back} />; }
+function RoutesRoute() { const { product, data, now, setData } = useApp(); const back = useBack(); const [syncing, setSyncing] = useState(false); const [syncError, setSyncError] = useState(""); if (product !== PRODUCTS.NEGAHBAN) return <Navigate to="/home" replace />; const sync = async () => { setSyncing(true); setSyncError(""); try { setData(await repo.syncNegahban()); } catch (error) { setSyncError(error?.message || "به‌روزرسانی ناموفق بود."); } finally { setSyncing(false); } }; return <RoutesPage routePoints={data.routePoints} routeHistory={data.routeHistory} latestTelemetry={data.latestTelemetry} deviceCode={data.vehicle?.deviceCode} online={isTelemetryFresh({ recorded_at: data.routeHistory?.[0]?.recordedAt }, now)} historyError={syncError || data.historyError} onSync={sync} syncing={syncing} onBack={back} />; }
 function MpuRoute() { const { product, data } = useApp(); const back = useBack(); if (product !== PRODUCTS.NEGAHBAN) return <Navigate to="/home" replace />; return <MpuPage events={data.mpuEvents} onBack={back} />; }
-function ProfileRoute() { const { data, setData, showToast, logout } = useApp(); const back = useBack(); const update = async (changes) => { const raw = await repo.updateProfile(changes); setData((current) => ({ ...current, user: { ...current.user, firstName: raw.first_name, lastName: raw.last_name, birthDate: raw.birth_date } })); showToast("پروفایل ذخیره شد."); }; return <ProfilePage user={data.user} apiMode={repo.runtime.useMockApi ? "mock" : "api"} onUpdate={update} onTestBackend={repo.testBackendConnection} onBack={back} onLogout={logout} onSetting={(name) => showToast(`${name} در نسخه فعلی در دسترس نیست.`)} />; }
+function ProfileRoute() { const { data, setData, showToast, logout } = useApp(); const back = useBack(); const update = async (changes) => { const raw = await repo.updateProfile(changes); setData((current) => ({ ...current, user: { ...current.user, firstName: raw?.first_name ?? changes.first_name, lastName: raw?.last_name ?? changes.last_name, birthDate: raw?.birth_date ?? changes.birth_date } })); showToast("پروفایل ذخیره شد."); }; return <ProfilePage user={data.user} onUpdate={update} onTestBackend={repo.testBackendConnection} onBack={back} onLogout={logout} />; }
 
 void legacyOtpRoute;
 void legacyAppFrame;
