@@ -1,8 +1,14 @@
 import { useRef, useState } from "react";
-import { OTP_LENGTH } from "../config/auth";
+import { OTP_GROUP_SIZE, OTP_LENGTH } from "../config/auth";
+import { normalizeDigits } from "../utils/validation";
+
+// Keep only ASCII digits (Persian/Arabic digits are converted first). The OTP
+// stays a string end to end so leading zeros are never lost.
+const onlyDigits = (value) => normalizeDigits(value).replace(/\D/g, "");
 
 export default function OtpInput({ onChange, onComplete }) {
   const length = OTP_LENGTH;
+  const columns = Math.min(length, OTP_GROUP_SIZE);
   const [digits, setDigits] = useState(() => Array(length).fill(""));
   const inputsRef = useRef([]);
 
@@ -12,45 +18,64 @@ export default function OtpInput({ onChange, onComplete }) {
     if (next.every(Boolean)) onComplete?.(code);
   };
 
+  const focusIndex = (index) => {
+    inputsRef.current[index]?.focus();
+    inputsRef.current[index]?.select();
+  };
+
+  // Fill consecutive boxes from `start` (used for paste and one-time-code autofill).
+  const fillFrom = (start, value, base) => {
+    const next = [...base];
+    value.slice(0, length - start).split("").forEach((digit, offset) => {
+      next[start + offset] = digit;
+    });
+    setDigits(next);
+    emit(next);
+    focusIndex(Math.min(start + value.length, length) - 1);
+  };
+
   const handleChange = (index, rawValue) => {
-    const value = rawValue.replace(/\D/g, "").slice(-1);
+    const clean = onlyDigits(rawValue);
+
+    // More than "old digit + new digit" means the whole code arrived at once
+    // (SMS one-time-code autofill or keyboard suggestion).
+    if (clean.length > 2) {
+      const start = clean.length >= length ? 0 : index;
+      fillFrom(start, clean, start === 0 ? Array(length).fill("") : digits);
+      return;
+    }
+
+    const value = clean.slice(-1);
     const next = [...digits];
     next[index] = value;
     setDigits(next);
     emit(next);
 
     if (value && index < length - 1) {
-      inputsRef.current[index + 1]?.focus();
-      inputsRef.current[index + 1]?.select();
+      focusIndex(index + 1);
     }
   };
 
   const handleKeyDown = (index, event) => {
     if (event.key === "Backspace" && !digits[index] && index > 0) {
-      inputsRef.current[index - 1]?.focus();
-      inputsRef.current[index - 1]?.select();
+      focusIndex(index - 1);
     }
   };
 
   const handlePaste = (event) => {
     event.preventDefault();
-    const pasted = event.clipboardData.getData("text").replace(/\D/g, "").slice(0, length);
+    const pasted = onlyDigits(event.clipboardData.getData("text")).slice(0, length);
     if (!pasted) return;
 
-    const next = Array(length).fill("");
-    pasted.split("").forEach((digit, index) => {
-      next[index] = digit;
-    });
-
-    setDigits(next);
-    emit(next);
-    inputsRef.current[Math.min(pasted.length, length) - 1]?.focus();
+    fillFrom(0, pasted, Array(length).fill(""));
   };
 
   return (
     <div
       className="otp-row"
-      style={{ "--otp-length": length }}
+      style={{ "--otp-length": length, "--otp-columns": columns }}
+      role="group"
+      aria-label={`کد یکبار مصرف ${length} رقمی`}
       onPaste={handlePaste}
     >
       {digits.map((digit, index) => (
@@ -58,8 +83,9 @@ export default function OtpInput({ onChange, onComplete }) {
           key={index}
           ref={(el) => { inputsRef.current[index] = el; }}
           className="otp"
+          dir="ltr"
           value={digit}
-          maxLength={1}
+          maxLength={length}
           inputMode="numeric"
           pattern="[0-9]*"
           autoComplete={index === 0 ? "one-time-code" : "off"}

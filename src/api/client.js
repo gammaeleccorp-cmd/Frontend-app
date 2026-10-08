@@ -26,6 +26,36 @@ export function clearTokens() {
   localStorage.removeItem(REFRESH_KEY);
 }
 
+export function getRefreshToken() {
+  return localStorage.getItem(REFRESH_KEY);
+}
+
+let refreshing = null;
+
+// One shared refresh for concurrent 401s; the access token lives 15 minutes,
+// so background polling must renew it instead of signing the user out.
+async function refreshAccessToken() {
+  const refresh = getRefreshToken();
+  if (!refresh) return false;
+  if (!refreshing) {
+    refreshing = fetch(`${runtime.apiBaseUrl}/api/v1/auth/otp/refresh/`, {
+      method: "POST",
+      headers: { Accept: "application/json", "Content-Type": "application/json" },
+      body: JSON.stringify({ refresh }),
+    })
+      .then(async (response) => {
+        if (!response.ok) return false;
+        const payload = await response.json().catch(() => null);
+        if (!payload?.access) return false;
+        setTokens({ access: payload.access, refresh: payload.refresh });
+        return true;
+      })
+      .catch(() => false)
+      .finally(() => { refreshing = null; });
+  }
+  return refreshing;
+}
+
 export async function apiRequest(path, options = {}) {
   const {
     method = "GET",
@@ -33,6 +63,7 @@ export async function apiRequest(path, options = {}) {
     auth = true,
     signal,
     headers: customHeaders = {},
+    retried = false,
   } = options;
 
   const headers = {
@@ -64,7 +95,7 @@ export async function apiRequest(path, options = {}) {
     });
   } catch (error) {
     throw new ApiError(
-      "ارتباط با سرور برقرار نشد. آدرس API، شبکه و CORS را بررسی کنید.",
+      "ارتباط با سرور برقرار نشد. اتصال اینترنت را بررسی و دوباره تلاش کنید.",
       0,
       error,
     );
@@ -79,12 +110,23 @@ export async function apiRequest(path, options = {}) {
       : await response.text().catch(() => null);
   }
 
+  if (auth && response.status === 401 && !retried && getRefreshToken()) {
+    if (await refreshAccessToken()) return apiRequest(path, { ...options, retried: true });
+  }
+
   if (!response.ok) {
-    const message =
-      payload?.detail ||
-      payload?.message ||
-      payload?.error ||
-      `خطای سرور (${response.status})`;
+    if (auth && response.status === 401) clearTokens();
+    const known = {
+      'Invalid OTP.': 'کد تأیید اشتباه است.',
+      'No active OTP was found.': 'کد فعالی یافت نشد؛ دوباره درخواست کد کنید.',
+      'OTP has expired.': 'کد تأیید منقضی شده است؛ کد جدید بگیرید.',
+      'Device was not found.': 'دستگاهی با این کد پیدا نشد.',
+      'Device is not production-ready.': 'دستگاه هنوز مراحل کارخانه را تکمیل نکرده است.',
+    };
+    const detail = payload?.detail || payload?.message;
+    const fieldLabels = { mobile: 'شماره موبایل', code: 'کد تأیید', device_code: 'کد دستگاه', registration: 'اطلاعات ثبت‌نام', firstName: 'نام', lastName: 'نام خانوادگی', birthDate: 'تاریخ تولد', deviceModel: 'مدل دستگاه' };
+    const fields = payload && typeof payload === 'object' ? Object.keys(payload).filter(key => fieldLabels[key]).map(key => fieldLabels[key]) : [];
+    const message = known[detail] || (response.status === 409 ? 'این دستگاه قبلاً متصل شده یا در دسترس نیست.' : response.status === 401 ? 'نشست شما منقضی شده است؛ دوباره وارد شوید.' : response.status === 429 ? 'تعداد درخواست‌ها زیاد است؛ کمی صبر کنید و دوباره تلاش کنید.' : fields.length ? 'این فیلدها را بررسی کنید: ' + fields.join('، ') : response.status >= 500 ? 'سرویس موقتاً در دسترس نیست؛ کمی بعد دوباره تلاش کنید.' : detail || 'درخواست پذیرفته نشد؛ اطلاعات را بررسی کنید.');
 
     throw new ApiError(message, response.status, payload);
   }

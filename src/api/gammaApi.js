@@ -43,3 +43,30 @@ export async function getLatestTelemetry(vehicleId) {
 export async function updateVehicle(vehicleId, changes) {
   return apiRequest(endpoints.vehicles.detail(vehicleId), { method: "PATCH", body: changes });
 }
+
+export async function getDeviceStatus(deviceCode, signal) {
+  return apiRequest(endpoints.devices.status(deviceCode), { signal });
+}
+
+export async function getDeviceTelemetry(deviceCode, signal) {
+  return unwrapList(await apiRequest(`${endpoints.devices.telemetry(deviceCode)}?limit=200`, { signal }));
+}
+
+export async function createDeviceCommand(deviceCode, commandType) {
+  return apiRequest(endpoints.commands.create, {
+    method: "POST",
+    body: { device_code: deviceCode, command_type: commandType },
+  });
+}
+
+export async function getCommand(commandId, signal) {
+  return apiRequest(endpoints.commands.detail(commandId), { signal });
+}
+
+export async function listNotifications(signal) {
+  return apiRequest(endpoints.notifications.list, { signal });
+}
+
+export async function markNotificationsRead() {
+  return apiRequest(endpoints.notifications.read, { method: "POST" });
+}

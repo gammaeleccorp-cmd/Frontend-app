@@ -3,7 +3,7 @@ import { useEffect, useRef } from "react";
 export const PLATE_LETTERS = ["الف", "ب", "پ", "ت", "ث", "ج", "چ", "ح", "خ", "د", "ذ", "ر", "ز", "ژ", "س", "ش", "ص", "ض", "ط", "ظ", "ع", "غ", "ف", "ق", "ک", "گ", "ل", "م", "ن", "و", "ه", "ی"];
 
 const EMPTY_PLATE = { left: "", letter: "", middle: "", iran: "" };
-const digitsOnly = (value, length) => String(value || "").replace(/[۰-۹]/g, (digit) => String("۰۱۲۳۴۵۶۷۸۹".indexOf(digit))).replace(/[^0-9]/g, "").slice(0, length);
+const digitsOnly = (value, length) => String(value || "").replace(/[۰-۹]/g, (digit) => String("۰۱۲۳۴۵۶۷۸۹".indexOf(digit))).replace(/[٠-٩]/g, (digit) => String("٠١٢٣٤٥٦٧٨٩".indexOf(digit))).replace(/[^0-9]/g, "").slice(0, length);
 
 export function normalizePlateValue(value) {
   if (value && typeof value === "object") return { ...EMPTY_PLATE, ...value };
@@ -28,12 +28,12 @@ export default function PlateInput({ value, onChange, disabled = false, error = 
 
   const update = (key, nextValue, nextIndex) => {
     onChange({ ...plate, [key]: nextValue });
-    if (nextValue && nextIndex !== undefined) refs.current[nextIndex]?.focus();
+    if (nextIndex !== undefined && ((key === "letter" && nextValue) || (key === "left" && nextValue.length === 2) || (key === "middle" && nextValue.length === 3))) refs.current[nextIndex]?.focus({ preventScroll: true });
   };
   const onKeyDown = (index, event) => {
     if (event.key === "Backspace" && !event.currentTarget.value && index > 0) {
       event.preventDefault();
-      refs.current[index - 1]?.focus();
+      refs.current[index - 1]?.focus({ preventScroll: true });
     }
   };
   const field = (key, index, maxLength, label) => (

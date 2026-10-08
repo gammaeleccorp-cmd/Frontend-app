@@ -10,6 +10,11 @@ import {
   Wifi,
 } from "lucide-react";
 import MetricCard from "../components/MetricCard";
+import ConnectionCheck from "../components/ConnectionCheck";
+import DeviceMap from "../components/DeviceMap";
+import RelayControl from "../components/RelayControl";
+import { describeConnection, describeLocation, useLiveDevice } from "../state/liveDevice";
+import { formatAge, formatNumber } from "../utils/time";
 import StatusBadge from "../components/StatusBadge";
 import GammaStatus from "../components/motion/GammaStatus";
 import { PRODUCTS, VIEWS } from "../data/mockData";
@@ -27,21 +32,22 @@ export default function HomePage({
       onDtcOpen={onDtcOpen}
     />
   ) : (
-    <NegahbanHome data={data} onNavigate={onNavigate} />
+    <NegahbanHome onNavigate={onNavigate} />
   );
 }
 
 function LuminenHome({ data, onNavigate, onDtcOpen }) {
   const primaryDtc = data.dtcs?.[0];
+  const connection = describeConnection(useLiveDevice());
 
   return (
     <>
       <StatusHero
         icon={<Car size={42} />}
         label="وضعیت خودرو"
-        title={primaryDtc ? "نیاز به بررسی دارد" : "همه‌چیز عادی است"}
-        subtitle="ECU پاسخ می‌دهد • VIN شناسایی شده"
-        warning={Boolean(primaryDtc)}
+        title={primaryDtc ? "نیاز به بررسی دارد" : "خطای فعالی گزارش نشده"}
+        subtitle={`ارتباط دستگاه: ${connection.label} · ${connection.detail}`}
+        warning={Boolean(primaryDtc) || connection.tone !== "online"}
       />
 
       <section className="connection-grid">
@@ -69,7 +75,7 @@ function LuminenHome({ data, onNavigate, onDtcOpen }) {
       </section>
 
       <section className="metrics">
-        {data.luminenMetrics.map((item) => (
+        {(data.luminenMetrics || []).map((item) => (
           <MetricCard key={item.label} item={item} />
         ))}
       </section>
@@ -128,20 +134,31 @@ function LuminenHome({ data, onNavigate, onDtcOpen }) {
   );
 }
 
-function NegahbanHome({ data, onNavigate }) {
-  const latestRoute = data.routeHistory?.[0];
+function NegahbanHome({ onNavigate }) {
+  const live = useLiveDevice();
+  const connection = describeConnection(live);
+  const location = describeLocation(live.status);
+  const telemetry = live.status?.latest_telemetry;
+  const point = live.status?.location;
+  const metrics = [
+    { label: "سرعت", value: formatNumber(telemetry?.speed), unit: "km/h", icon: "gauge" },
+    { label: "ولتاژ", value: formatNumber(telemetry?.battery_voltage, 1), unit: "V", icon: "battery" },
+    { label: "آخرین موقعیت", value: point ? formatAge(point.age_seconds) : "—", unit: "", icon: "pin" },
+    { label: "GPS", value: location.label, unit: "", icon: "route" },
+  ];
 
   return (
     <>
       <StatusHero
         icon={<Navigation size={42} />}
-        label="وضعیت ردیاب"
-        title={data.negahbanStatus?.online ? "آنلاین و در حال ارسال" : "آفلاین"}
-        subtitle={data.negahbanStatus?.online ? "آخرین داده از دستگاه دریافت شده است" : "دستگاه اخیراً داده‌ای ارسال نکرده است"}
+        label={`وضعیت ردیاب ${live.deviceCode || ""}`.trim()}
+        title={connection.tone === "online" ? "آنلاین و در حال ارسال" : connection.label}
+        subtitle={connection.detail}
+        warning={connection.tone !== "online"}
       />
 
       <section className="metrics">
-        {data.negahbanMetrics.map((item) => (
+        {metrics.map((item) => (
           <MetricCard key={item.label} item={item} />
         ))}
       </section>
@@ -150,34 +167,19 @@ function NegahbanHome({ data, onNavigate }) {
         <div className="section-title">
           <div>
             <p className="eyebrow no-margin">LOCATION</p>
-            <h3>آخرین وضعیت مسیر</h3>
+            <h3>آخرین موقعیت</h3>
           </div>
-          <StatusBadge tone={data.negahbanStatus?.online ? "success" : "warning"}>{data.negahbanStatus?.online ? "آنلاین" : "آفلاین"}</StatusBadge>
+          <StatusBadge tone={location.state === "fresh" ? "success" : "warning"}>{location.label}</StatusBadge>
         </div>
-
-        <div className="location-summary-grid">
-          <div>
-            <span className="muted">آخرین موقعیت</span>
-            <strong>{latestRoute?.date || "—"}</strong>
-          </div>
-          <div>
-            <span className="muted">مسافت آخرین مسیر</span>
-            <strong>{latestRoute?.distance || "—"}</strong>
-          </div>
-          <div>
-            <span className="muted">وضعیت GNSS</span>
-            <strong>{data.connection?.gnss?.status || "نامشخص"}</strong>
-          </div>
-        </div>
-
-        <button
-          className="secondary-btn"
-          type="button"
-          onClick={() => onNavigate(VIEWS.ROUTES)}
-        >
+        {point ? <DeviceMap location={point} stale={point.stale} height={220} /> : <div className="empty-state compact-empty">{location.detail}</div>}
+        {point && <p className={point.stale ? "warning-text small-text" : "muted small-text"}>{location.detail}</p>}
+        <button className="secondary-btn" type="button" onClick={() => onNavigate(VIEWS.ROUTES)}>
           مشاهده نقشه و مسیرها
         </button>
       </section>
+
+      <ConnectionCheck />
+      <RelayControl />
 
       <section className="two-column">
         <ActionCard
@@ -190,7 +192,7 @@ function NegahbanHome({ data, onNavigate }) {
         <ActionCard
           icon={<Route />}
           title="تاریخچه مسیر"
-          text="مسیرها و Sync آفلاین دستگاه."
+          text="نقاط ثبت‌شده و مسیر اخیر دستگاه."
           action="مشاهده تاریخچه"
           onClick={() => onNavigate(VIEWS.ROUTES)}
         />
