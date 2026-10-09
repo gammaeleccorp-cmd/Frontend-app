@@ -18,10 +18,12 @@ import { formatAge, formatNumber } from "../utils/time";
 import StatusBadge from "../components/StatusBadge";
 import GammaStatus from "../components/motion/GammaStatus";
 import { PRODUCTS, VIEWS } from "../data/mockData";
+import { formatTelemetryTime, isTelemetryFresh } from "../utils/telemetry.mjs";
 
 export default function HomePage({
   product,
   data,
+  now,
   onNavigate,
   onDtcOpen,
 }) {
@@ -32,7 +34,7 @@ export default function HomePage({
       onDtcOpen={onDtcOpen}
     />
   ) : (
-    <NegahbanHome onNavigate={onNavigate} />
+    <NegahbanHome data={data} now={now} onNavigate={onNavigate} />
   );
 }
 
@@ -134,9 +136,18 @@ function LuminenHome({ data, onNavigate, onDtcOpen }) {
   );
 }
 
-function NegahbanHome({ onNavigate }) {
+function NegahbanHome({ data, now, onNavigate }) {
   const live = useLiveDevice();
-  const connection = describeConnection(live);
+  const hasLiveDevice = Boolean(live.deviceCode);
+  const fallbackFresh = isTelemetryFresh(data?.latestTelemetry, now);
+  const connection = hasLiveDevice
+    ? describeConnection(live)
+    : {
+        tone: fallbackFresh ? "online" : "offline",
+        label: fallbackFresh ? "داده تازه از دستگاه" : "داده تازه دریافت نشده",
+        detail: `آخرین دریافت: ${formatTelemetryTime(data?.latestTelemetry?.received_at || data?.latestTelemetry?.recorded_at)}`,
+      };
+  const deviceCode = live.deviceCode || data?.vehicle?.deviceCode || "";
   const location = describeLocation(live.status);
   const telemetry = live.status?.latest_telemetry;
   const point = live.status?.location;
@@ -151,7 +162,7 @@ function NegahbanHome({ onNavigate }) {
     <>
       <StatusHero
         icon={<Navigation size={42} />}
-        label={`وضعیت ردیاب ${live.deviceCode || ""}`.trim()}
+        label={`وضعیت ردیاب ${deviceCode}`.trim()}
         title={connection.tone === "online" ? "آنلاین و در حال ارسال" : connection.label}
         subtitle={connection.detail}
         warning={connection.tone !== "online"}

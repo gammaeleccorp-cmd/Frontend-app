@@ -10,7 +10,7 @@ export default function BottomNav({ product, path, onNavigate }) {
 
   const items = [
     { key: VIEWS.HOME, label: "خانه", icon: Home },
-    { key: VIEWS.VEHICLE, label: "خودرو", icon: Car },
+    { key: VIEWS.VEHICLE, label: product === PRODUCTS.NEGAHBAN ? "دستگاه" : "خودرو", icon: Car },
     third,
     { key: VIEWS.PROFILE, label: "پروفایل", icon: User },
   ];

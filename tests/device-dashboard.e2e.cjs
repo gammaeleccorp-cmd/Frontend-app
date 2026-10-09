@@ -54,7 +54,9 @@ const REFRESH = `${b64({ alg: "none" })}.${b64({ jti: "current-jti", user_id: "u
       state.me = { ...state.me, ...rest, birth_date: rest.birth_date || state.me.birth_date };
       if (vehicle) state.me.vehicle = { id: "v1", make: "", status: "PENDING", ...state.me.vehicle, ...vehicle, production_year: Number(vehicle.production_year) || null };
       data = state.me;
-    } else if (p === "/api/v1/devices/NG-0001/status/") data = state.status;
+    } else if (p === "/api/v1/telemetry/devices/NG-0001/latest/") data = state.status.latest_telemetry;
+    else if (p === "/api/v1/telemetry/devices/NG-0001/history/") data = state.route;
+    else if (p === "/api/v1/devices/NG-0001/status/") data = state.status;
     else if (p === "/api/v1/devices/NG-0001/telemetry/") data = state.route;
     else if (p === "/api/v1/commands/" && method === "POST") {
       assert.equal(body.device_code, "NG-0001");
@@ -125,11 +127,11 @@ const REFRESH = `${b64({ alg: "none" })}.${b64({ jti: "current-jti", user_id: "u
   assert.equal(posts.filter((item) => item.body?.command_type?.startsWith("RELAY")).length, 1);
   await page.screenshot({ path: path.join(SHOTS, "home-after-check.png"), fullPage: true });
 
-  // 4. Routes map and vehicle tab.
+  // 4. Routes map and device tab.
   await page.getByRole("button", { name: "مسیرها", exact: true }).click();
   await page.locator(".device-map.leaflet-container").waitFor();
   await page.screenshot({ path: path.join(SHOTS, "routes.png"), fullPage: true });
-  await page.getByRole("button", { name: "خودرو", exact: true }).click();
+  await page.getByRole("button", { name: "دستگاه", exact: true }).click();
   await page.getByRole("button", { name: "تکمیل اطلاعات در پروفایل" }).click();
   await page.waitForURL("**/profile");
   await page.locator(".profile-form").waitFor();

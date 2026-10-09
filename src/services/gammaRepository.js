@@ -29,6 +29,7 @@ import {
 import { formatPlateValue, isCompletePlate, normalizePlateValue } from "../components/PlateInput";
 import { asciiDigits, normalizeDeviceCode } from "../utils/deviceCode";
 import { parseJalaliBirthDate } from "../utils/jalaliDate";
+import { coordinates, isTelemetryFresh, normalizeTelemetryHistory } from "../utils/telemetry.mjs";
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 let mockConnectionState = structuredClone(mockConnection);
@@ -338,7 +339,13 @@ export async function bindDevice(payload) {
   }
   const code = normalizeDeviceCode(payload.deviceCode);
   if (!code) throw new Error('کد عمومی دستگاه معتبر نیست.');
-  return gammaApi.activateDevice({ device_code: code });
+  try {
+    return await gammaApi.activateDevice({ device_code: code });
+  } catch (error) {
+    if (error?.status === 404) throw new Error("دستگاه پیدا نشد.");
+    if (error?.status === 0) throw new Error("ارتباط با سرور برقرار نشد. اتصال اینترنت را بررسی و دوباره تلاش کنید.");
+    throw error;
+  }
 }
 
 export async function requestLoginOtp(mobile) {
@@ -488,7 +495,36 @@ export async function getBootstrapData() {
     gammaApi.listDevices(),
     authApi.getMe(),
   ]);
-  return buildSnapshot(meResult, devices);
+  const snapshot = buildSnapshot(meResult, devices);
+  const deviceCode = devices[0]?.device_code;
+  if (!deviceCode) return snapshot;
+
+  const [telemetry, history] = await Promise.allSettled([
+    gammaApi.getLatestDeviceTelemetry(deviceCode),
+    gammaApi.getDeviceTelemetryHistory(deviceCode),
+  ]);
+  const latestTelemetry = telemetry.status === "fulfilled" ? telemetry.value : null;
+  const historyItems = history.status === "fulfilled" ? history.value : [];
+  const routes = normalizeTelemetryHistory(historyItems);
+  const lastLocation = coordinates(latestTelemetry) || routes.routeHistory[0]?.coordinates || null;
+  const metrics = telemetryToMetrics(latestTelemetry);
+  const online = isTelemetryFresh(latestTelemetry);
+
+  return {
+    ...snapshot,
+    ...metrics,
+    latestTelemetry,
+    lastLocation,
+    routePoints: routes.routePoints,
+    routeHistory: routes.routeHistory,
+    telemetryError: telemetry.status === "rejected" ? "آخرین دادهٔ دستگاه دریافت نشد." : "",
+    historyError: history.status === "rejected" ? "تاریخچهٔ موقعیت دریافت نشد." : "",
+    connection: {
+      server: { status: online ? "داده تازه" : "بدون داده تازه" },
+      gnss: { status: lastLocation ? "موقعیت ثبت‌شده" : "موقعیتی ثبت نشده" },
+    },
+    negahbanStatus: { online },
+  };
 }
 
 function normalizeUser(me) {
@@ -597,7 +633,6 @@ export async function revokeOtherSessions() {
   return authApi.revokeOtherSessions();
 }
 
-void telemetryToMetrics;
 void telemetryToEcuParameters;
 void normalizeRoutes;
 void normalizeVehicle;

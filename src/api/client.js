@@ -2,6 +2,9 @@ import { runtime } from "../config/runtime";
 
 const ACCESS_KEY = "gamma_access_token";
 const REFRESH_KEY = "gamma_refresh_token";
+const REFRESH_PATH = "/api/v1/auth/otp/refresh/";
+let sessionVersion = 0;
+let refreshTask = null;
 
 export class ApiError extends Error {
   constructor(message, status = 0, payload = null) {
@@ -16,54 +19,69 @@ export function getAccessToken() {
   return localStorage.getItem(ACCESS_KEY);
 }
 
-export function setTokens({ access, refresh }) {
+export function getRefreshToken() {
+  return localStorage.getItem(REFRESH_KEY);
+}
+
+export function setTokens(tokens) {
+  clearTokens();
+  storeTokens(tokens);
+}
+
+function storeTokens({ access, refresh }) {
   if (access) localStorage.setItem(ACCESS_KEY, access);
   if (refresh) localStorage.setItem(REFRESH_KEY, refresh);
 }
 
 export function clearTokens() {
+  sessionVersion += 1;
   localStorage.removeItem(ACCESS_KEY);
   localStorage.removeItem(REFRESH_KEY);
 }
 
-export function getRefreshToken() {
-  return localStorage.getItem(REFRESH_KEY);
+function expireSession(version) {
+  if (version !== sessionVersion) return;
+  clearTokens();
+  window.location.replace("/login");
 }
 
-let refreshing = null;
-
-// One shared refresh for concurrent 401s; the access token lives 15 minutes,
-// so background polling must renew it instead of signing the user out.
 async function refreshAccessToken() {
   const refresh = getRefreshToken();
   if (!refresh) return false;
-  if (!refreshing) {
-    refreshing = fetch(`${runtime.apiBaseUrl}/api/v1/auth/otp/refresh/`, {
+  const version = sessionVersion;
+  if (!refreshTask || refreshTask.version !== version) {
+    const task = { version };
+    task.promise = apiRequest(REFRESH_PATH, {
       method: "POST",
-      headers: { Accept: "application/json", "Content-Type": "application/json" },
-      body: JSON.stringify({ refresh }),
-    })
-      .then(async (response) => {
-        if (!response.ok) return false;
-        const payload = await response.json().catch(() => null);
-        if (!payload?.access) return false;
-        setTokens({ access: payload.access, refresh: payload.refresh });
-        return true;
-      })
-      .catch(() => false)
-      .finally(() => { refreshing = null; });
+      auth: false,
+      body: { refresh },
+    }).then((payload) => {
+      // A response from the previous login must not restore a logged-out session.
+      if (version !== sessionVersion) return false;
+      if (typeof payload?.access !== "string" || !payload.access.trim()) {
+        throw new ApiError("نشست ورود معتبر نیست. دوباره وارد شوید.", 401);
+      }
+      storeTokens({ access: payload.access, refresh: payload.refresh });
+      return true;
+    }).finally(() => {
+      if (refreshTask === task) refreshTask = null;
+    });
+    refreshTask = task;
   }
-  return refreshing;
+  return refreshTask.promise;
 }
 
 export async function apiRequest(path, options = {}) {
+  return request(path, options, true, sessionVersion);
+}
+
+async function request(path, options, canRefresh, version) {
   const {
     method = "GET",
     body,
     auth = true,
     signal,
     headers: customHeaders = {},
-    retried = false,
   } = options;
 
   const headers = {
@@ -95,10 +113,27 @@ export async function apiRequest(path, options = {}) {
     });
   } catch (error) {
     throw new ApiError(
-      "ارتباط با سرور برقرار نشد. اتصال اینترنت را بررسی و دوباره تلاش کنید.",
+      "ارتباط با سرور برقرار نشد. آدرس API، شبکه و CORS را بررسی کنید.",
       0,
       error,
     );
+  }
+
+  if (auth && response.status === 401) {
+    if (canRefresh && token && version === sessionVersion) {
+      try {
+        // Another request may already have replaced this rejected access token.
+        const refreshed = getAccessToken() !== token || await refreshAccessToken();
+        if (refreshed && version === sessionVersion) {
+          return request(path, options, false, version);
+        }
+      } catch (error) {
+        // A temporary network/server failure must not log the user out.
+        if (![400, 401, 403].includes(error.status)) throw error;
+      }
+    }
+    expireSession(version);
+    throw new ApiError("نشست ورود معتبر نیست. دوباره وارد شوید.", 401);
   }
 
   const contentType = response.headers.get("content-type") || "";
@@ -110,23 +145,12 @@ export async function apiRequest(path, options = {}) {
       : await response.text().catch(() => null);
   }
 
-  if (auth && response.status === 401 && !retried && getRefreshToken()) {
-    if (await refreshAccessToken()) return apiRequest(path, { ...options, retried: true });
-  }
-
   if (!response.ok) {
-    if (auth && response.status === 401) clearTokens();
-    const known = {
-      'Invalid OTP.': 'کد تأیید اشتباه است.',
-      'No active OTP was found.': 'کد فعالی یافت نشد؛ دوباره درخواست کد کنید.',
-      'OTP has expired.': 'کد تأیید منقضی شده است؛ کد جدید بگیرید.',
-      'Device was not found.': 'دستگاهی با این کد پیدا نشد.',
-      'Device is not production-ready.': 'دستگاه هنوز مراحل کارخانه را تکمیل نکرده است.',
-    };
-    const detail = payload?.detail || payload?.message;
-    const fieldLabels = { mobile: 'شماره موبایل', code: 'کد تأیید', device_code: 'کد دستگاه', registration: 'اطلاعات ثبت‌نام', firstName: 'نام', lastName: 'نام خانوادگی', birthDate: 'تاریخ تولد', deviceModel: 'مدل دستگاه' };
-    const fields = payload && typeof payload === 'object' ? Object.keys(payload).filter(key => fieldLabels[key]).map(key => fieldLabels[key]) : [];
-    const message = known[detail] || (response.status === 409 ? 'این دستگاه قبلاً متصل شده یا در دسترس نیست.' : response.status === 401 ? 'نشست شما منقضی شده است؛ دوباره وارد شوید.' : response.status === 429 ? 'تعداد درخواست‌ها زیاد است؛ کمی صبر کنید و دوباره تلاش کنید.' : fields.length ? 'این فیلدها را بررسی کنید: ' + fields.join('، ') : response.status >= 500 ? 'سرویس موقتاً در دسترس نیست؛ کمی بعد دوباره تلاش کنید.' : detail || 'درخواست پذیرفته نشد؛ اطلاعات را بررسی کنید.');
+    const message =
+      payload?.detail ||
+      payload?.message ||
+      payload?.error ||
+      `خطای سرور (${response.status})`;
 
     throw new ApiError(message, response.status, payload);
   }

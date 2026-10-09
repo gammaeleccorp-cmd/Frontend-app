@@ -5,12 +5,13 @@ import { PRODUCTS } from "../data/mockData";
 import { describeConnection, describeLocation, useLiveDevice } from "../state/liveDevice";
 import { formatDateTime } from "../utils/time";
 
-export default function VehiclePage({ product, details, deviceCode, onBack, onEditProfile }) {
+export default function VehiclePage({ product, details, deviceCode, data, onBack, onEditProfile }) {
   const luminen = product === PRODUCTS.LUMINEN;
   const live = useLiveDevice();
   const connection = describeConnection(live);
   const location = describeLocation(live.status);
   const hasDetails = Boolean(details?.hasDetails);
+  const effectiveDeviceCode = deviceCode || data?.vehicle?.deviceCode;
 
   return (
     <section className="page-section">
@@ -34,7 +35,7 @@ export default function VehiclePage({ product, details, deviceCode, onBack, onEd
         </section>
       ) : (
         <section className="panel empty-vehicle">
-          <p className="muted">اطلاعات خودرو برای استفاده از دستگاه الزامی نیست و هر زمان از پروفایل قابل تکمیل است.</p>
+          <p className="muted">ثبت خودرو اختیاری است؛ اطلاعات آن هر زمان از پروفایل قابل تکمیل است.</p>
         </section>
       )}
       <button type="button" className={hasDetails ? "secondary-btn full-btn" : "primary-btn full-btn"} onClick={onEditProfile}>
@@ -47,7 +48,7 @@ export default function VehiclePage({ product, details, deviceCode, onBack, onEd
           <StatusBadge tone={connection.tone === "online" ? "success" : "warning"}>{connection.label}</StatusBadge>
         </div>
         <div className="status-list">
-          <StatusLine icon={<Cpu size={15} />} label="کد دستگاه" value={deviceCode || "—"} ltr />
+          <StatusLine icon={<Cpu size={15} />} label="کد دستگاه" value={effectiveDeviceCode || "—"} ltr />
           <StatusLine label="نوع دستگاه" value={luminen ? "راهبان (OBD)" : "نگهبان (ردیاب)"} />
           <StatusLine label="آخرین ارتباط" value={live.status?.last_seen ? formatDateTime(live.status.last_seen) : "—"} />
           <StatusLine label="موقعیت" value={location.label} />

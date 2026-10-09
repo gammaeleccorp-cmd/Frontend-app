@@ -752,3 +752,42 @@ html.reduce-motion *, html.reduce-motion *::before, html.reduce-motion *::after 
   .relay-actions { grid-template-columns: 1fr; }
   .bottom-nav { width: calc(100% - 20px); }
 }
+
+/* Published main layout retained during Sprint 10 reconciliation. */
+.device-dot.offline { background: var(--muted); box-shadow: none; }
+.simple-registration { text-align: right; }
+.simple-registration .brand-logo, .simple-registration > h1, .simple-registration > p { text-align: center; }
+.simple-registration label > span, .device-add-card label > span { display: block; margin-bottom: 7px; }
+.simple-registration .auth-form-grid label { margin-top: 12px; }
+.device-add-card { margin: 24px auto; }
+.device-help { margin: 18px 0; line-height: 1.8; }
+.negahban-metrics { grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr)); }
+.home-actions { display: flex; justify-content: flex-end; margin-bottom: 14px; }
+.device-help .link-btn { display: inline; margin: 0; padding: 0 4px; }
+.location-summary-grid strong, .route-summary-item strong { overflow-wrap: anywhere; }
+.map-wrap { position: relative; }
+.map-empty { height: 100%; display: grid; place-items: center; }
+.map-error-overlay { position: absolute; z-index: 500; inset: auto 12px 12px; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px; border: 1px solid rgba(255,176,32,.5); border-radius: 8px; background: #1d1d20; color: var(--yellow); }
+.route-refresh { margin-top: 16px; }
+.route-row-main { min-width: 0; }
+.route-row-main .mono { overflow-wrap: anywhere; }
+.device-overview { display: flex; align-items: center; gap: 18px; }
+.device-product-mark { width: 68px; height: 68px; display: grid; place-items: center; flex: none; color: var(--orange); background: var(--surface-2); border-radius: 8px; }
+.device-overview-main { flex: 1; min-width: 0; }
+.device-overview-main .eyebrow { margin: 0; }
+.device-overview-main h3 { margin: 5px 0; overflow-wrap: anywhere; }
+.optional-vehicle p:last-child { margin-bottom: 0; }
+.vehicle-form .primary-btn, .profile-save { margin-top: 20px; min-width: 180px; }
+.profile-intro { display: flex; align-items: center; gap: 14px; margin: 8px 0 24px; }
+.profile-intro h3 { margin: 0 0 4px; }
+.profile-page .backend-test-card { margin-top: 20px; }
+.profile-page .danger-btn { width: auto; min-width: 180px; margin: 22px 0; }
+
+@media (max-width: 600px) {
+  .device-overview { flex-wrap: wrap; }
+  .device-overview > .status-badge { margin-right: 86px; }
+  .map-error-overlay { flex-direction: column; align-items: stretch; }
+  .profile-save, .profile-page .danger-btn { width: 100%; }
+  .route-row { grid-template-columns: auto minmax(0, 1fr); }
+  .route-row-meta { grid-column: 2; text-align: right; }
+}

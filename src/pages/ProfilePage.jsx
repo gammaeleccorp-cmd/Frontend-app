@@ -149,7 +149,10 @@ export default function ProfilePage({ user, vehicle, unreadCount = 0, onTestBack
           {field("birthDate", "birth_date", "تاریخ تولد (شمسی)", { inputMode: "numeric", dir: "ltr", placeholder: "1370/01/01", maxLength: 10 })}
           {field("emergencyPhone", "emergency_phone", "تلفن اضطراری", { type: "tel", inputMode: "tel", dir: "ltr", placeholder: "09xxxxxxxxx", autoComplete: "tel" })}
         </div>
-        <p className="muted small-text">موبایل حساب: <span dir="ltr">{user?.mobile || "—"}</span></p>
+        <label className="form-field">
+          <span>شماره موبایل</span>
+          <input value={user?.mobile || ""} dir="ltr" readOnly aria-readonly="true" />
+        </label>
 
         <div className="section-title form-subtitle"><h3>اطلاعات خودرو</h3><span className="muted small-text">اختیاری</span></div>
         <div className="form-grid">
@@ -165,7 +168,7 @@ export default function ProfilePage({ user, vehicle, unreadCount = 0, onTestBack
       <section className="panel backend-test-card">
         <div className="mini-heading"><DatabaseZap /><strong>دسترسی به سرور</strong></div>
         <p className="muted">بررسی می‌کند سرور گاما از این مرورگر در دسترس است.</p>
-        <button type="button" className="secondary-btn" disabled={checking} onClick={test}>{checking ? "در حال بررسی..." : "بررسی دسترسی"}</button>
+        <button type="button" className="secondary-btn" disabled={checking} onClick={test}>{checking ? "در حال بررسی..." : "تست اتصال Backend"}</button>
         {backend && <div className={backend.reachable ? "inline-success" : "form-error"}>{backend.reachable ? "سرور در دسترس است." : "سرور از این مرورگر در دسترس نیست."}</div>}
       </section>
 

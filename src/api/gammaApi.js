@@ -40,6 +40,16 @@ export async function getLatestTelemetry(vehicleId) {
   return apiRequest(endpoints.telemetry.latest(vehicleId));
 }
 
+export async function getDeviceTelemetryHistory(deviceCode) {
+  return unwrapList(
+    await apiRequest(endpoints.telemetry.deviceHistory(deviceCode))
+  );
+}
+
+export async function getLatestDeviceTelemetry(deviceCode) {
+  return apiRequest(endpoints.telemetry.deviceLatest(deviceCode));
+}
+
 export async function updateVehicle(vehicleId, changes) {
   return apiRequest(endpoints.vehicles.detail(vehicleId), { method: "PATCH", body: changes });
 }

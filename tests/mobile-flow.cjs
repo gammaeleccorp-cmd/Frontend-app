@@ -22,6 +22,8 @@ const path = require('path');
       else if(failBinding===2) return route.abort('internetdisconnected');
       else {status=201;bound=true;data={device:{device_code:'NG-0001'}};}
     } else if(url.pathname.endsWith('/devices/')) data=bound?[{id:'test-board',device_code:'NG-0001',product_type:'NEGAHBAN',status:'ACTIVE'}]:[];
+    else if(url.pathname.endsWith('/telemetry/devices/NG-0001/latest/')) data=null;
+    else if(url.pathname.endsWith('/telemetry/devices/NG-0001/history/')) data=[];
     else if(url.pathname.endsWith('/devices/NG-0001/status/')) data={device_code:'NG-0001',online:false,last_seen:null,server_time:new Date().toISOString(),vehicle:null,latest_telemetry:null,location:null};
     else if(url.pathname.endsWith('/devices/NG-0001/telemetry/')) data=[];
     else if(url.pathname.endsWith('/notifications/')) data={unread_count:0,items:[]};

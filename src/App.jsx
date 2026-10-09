@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useState } from "react";
+import { Component, lazy, Suspense, useCallback, useEffect, useState } from "react";
 import { BrowserRouter, Navigate, Outlet, Route, Routes, useLocation, useNavigate, useOutletContext, useParams } from "react-router-dom";
 import AppHeader from "./components/AccessAppHeader";
 import BottomNav from "./components/BottomNav";
@@ -34,7 +34,16 @@ import * as repo from "./services/gammaRepository";
 
 const LazyRoutesPage = lazy(() => import("./pages/RoutesPage"));
 function RoutesPage(props) {
-  return <Suspense fallback={<StateMessage loading message="در حال بارگذاری نقشه..." />}><LazyRoutesPage {...props} /></Suspense>;
+  return <RouteErrorBoundary><Suspense fallback={<StateMessage loading message="در حال بارگذاری نقشه..." />}><LazyRoutesPage {...props} /></Suspense></RouteErrorBoundary>;
+}
+
+class RouteErrorBoundary extends Component {
+  state = { failed: false };
+  static getDerivedStateFromError() { return { failed: true }; }
+  render() {
+    if (this.state.failed) return <section className="panel"><div className="form-error" role="alert">نقشه بارگذاری نشد.</div><button className="secondary-btn" type="button" onClick={() => window.location.reload()}>تلاش مجدد</button></section>;
+    return this.props.children;
+  }
 }
 
 export default function App() {
