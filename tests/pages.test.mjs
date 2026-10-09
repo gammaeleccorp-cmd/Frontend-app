@@ -5,7 +5,11 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { createServer } from "vite";
 
 test("Negahban pages render without a vehicle or fresh telemetry", async () => {
-  const vite = await createServer({ server: { middlewareMode: true, hmr: false }, appType: "custom" });
+  const vite = await createServer({
+    server: { middlewareMode: true, hmr: false },
+    appType: "custom",
+    optimizeDeps: { noDiscovery: true },
+  });
   try {
     const [{ default: HomePage }, { default: VehiclePage }, { default: ProfilePage }, repo] = await Promise.all([
       vite.ssrLoadModule("/src/pages/HomePage.jsx"),

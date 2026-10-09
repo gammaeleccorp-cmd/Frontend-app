@@ -1,4 +1,5 @@
 import {
+  Activity,
   Bluetooth,
   Car,
   Navigation,
@@ -9,10 +10,15 @@ import {
   Wifi,
 } from "lucide-react";
 import MetricCard from "../components/MetricCard";
+import ConnectionCheck from "../components/ConnectionCheck";
+import DeviceMap from "../components/DeviceMap";
+import RelayControl from "../components/RelayControl";
+import { describeConnection, describeLocation, useLiveDevice } from "../state/liveDevice";
+import { formatAge, formatNumber } from "../utils/time";
 import StatusBadge from "../components/StatusBadge";
 import GammaStatus from "../components/motion/GammaStatus";
 import { PRODUCTS, VIEWS } from "../data/mockData";
-import { coordinates, formatTelemetryTime, isTelemetryFresh } from "../utils/telemetry.mjs";
+import { formatTelemetryTime, isTelemetryFresh } from "../utils/telemetry.mjs";
 
 export default function HomePage({
   product,
@@ -34,15 +40,16 @@ export default function HomePage({
 
 function LuminenHome({ data, onNavigate, onDtcOpen }) {
   const primaryDtc = data.dtcs?.[0];
+  const connection = describeConnection(useLiveDevice());
 
   return (
     <>
       <StatusHero
         icon={<Car size={42} />}
         label="وضعیت خودرو"
-        title={primaryDtc ? "نیاز به بررسی دارد" : data.latestTelemetry ? "آخرین داده ثبت شده" : "داده ECU دریافت نشده"}
-        subtitle={`زمان آخرین داده: ${formatTelemetryTime(data.latestTelemetry?.recorded_at)}`}
-        warning={Boolean(primaryDtc) || !data.latestTelemetry}
+        title={primaryDtc ? "نیاز به بررسی دارد" : "خطای فعالی گزارش نشده"}
+        subtitle={`ارتباط دستگاه: ${connection.label} · ${connection.detail}`}
+        warning={Boolean(primaryDtc) || connection.tone !== "online"}
       />
 
       <section className="connection-grid">
@@ -70,7 +77,7 @@ function LuminenHome({ data, onNavigate, onDtcOpen }) {
       </section>
 
       <section className="metrics">
-        {data.luminenMetrics.map((item) => (
+        {(data.luminenMetrics || []).map((item) => (
           <MetricCard key={item.label} item={item} />
         ))}
       </section>
@@ -81,8 +88,8 @@ function LuminenHome({ data, onNavigate, onDtcOpen }) {
             <p className="eyebrow no-margin">DIAGNOSTICS</p>
             <h3>تفسیر خطاهای خودرو</h3>
           </div>
-          <StatusBadge tone="warning">
-            {primaryDtc ? `${data.dtcs.length} خطای ثبت‌شده` : "خطایی گزارش نشده"}
+          <StatusBadge tone={primaryDtc ? "warning" : "success"}>
+            {primaryDtc ? `${data.dtcs.length} خطای ثبت‌شده` : "بدون خطا"}
           </StatusBadge>
         </div>
 
@@ -130,83 +137,77 @@ function LuminenHome({ data, onNavigate, onDtcOpen }) {
 }
 
 function NegahbanHome({ data, now, onNavigate }) {
-  const online = isTelemetryFresh(data.latestTelemetry, now);
-  const latestTime = formatTelemetryTime(data.latestTelemetry?.received_at || data.latestTelemetry?.recorded_at);
-  const locationFresh = isTelemetryFresh({ recorded_at: data.latestTelemetry?.recorded_at }, now) && !!coordinates(data.latestTelemetry);
-  const location = data.lastLocation;
-  const locationTime = coordinates(data.latestTelemetry)
-    ? data.latestTelemetry?.recorded_at || data.latestTelemetry?.received_at
-    : data.routeHistory?.[0]?.recordedAt;
-  const device = data.vehicle || {};
+  const live = useLiveDevice();
+  const hasLiveDevice = Boolean(live.deviceCode);
+  const fallbackFresh = isTelemetryFresh(data?.latestTelemetry, now);
+  const connection = hasLiveDevice
+    ? describeConnection(live)
+    : {
+        tone: fallbackFresh ? "online" : "offline",
+        label: fallbackFresh ? "داده تازه از دستگاه" : "داده تازه دریافت نشده",
+        detail: `آخرین دریافت: ${formatTelemetryTime(data?.latestTelemetry?.received_at || data?.latestTelemetry?.recorded_at)}`,
+      };
+  const deviceCode = live.deviceCode || data?.vehicle?.deviceCode || "";
+  const location = describeLocation(live.status);
+  const telemetry = live.status?.latest_telemetry;
+  const point = live.status?.location;
+  const metrics = [
+    { label: "سرعت", value: formatNumber(telemetry?.speed), unit: "km/h", icon: "gauge" },
+    { label: "ولتاژ", value: formatNumber(telemetry?.battery_voltage, 1), unit: "V", icon: "battery" },
+    { label: "آخرین موقعیت", value: point ? formatAge(point.age_seconds) : "—", unit: "", icon: "pin" },
+    { label: "GPS", value: location.label, unit: "", icon: "route" },
+  ];
 
   return (
     <>
       <StatusHero
         icon={<Navigation size={42} />}
-        label="وضعیت ردیاب"
-        title={online ? "داده تازه از دستگاه" : "داده تازه دریافت نشده"}
-        subtitle={`دستگاه ${device.deviceCode || "—"} · آخرین دریافت: ${latestTime}`}
-        warning={!online}
+        label={`وضعیت ردیاب ${deviceCode}`.trim()}
+        title={connection.tone === "online" ? "آنلاین و در حال ارسال" : connection.label}
+        subtitle={connection.detail}
+        warning={connection.tone !== "online"}
       />
 
-      <section className="metrics negahban-metrics">
-        {data.negahbanMetrics.map((item) => (
+      <section className="metrics">
+        {metrics.map((item) => (
           <MetricCard key={item.label} item={item} />
         ))}
       </section>
-      {!data.negahbanMetrics.length && <div className="empty-state">هنوز دادهٔ اندازه‌گیری از دستگاه دریافت نشده است.</div>}
-      {data.telemetryError && <p className="form-error" role="alert">{data.telemetryError}</p>}
 
       <section className="panel map-preview-panel">
         <div className="section-title">
           <div>
             <p className="eyebrow no-margin">LOCATION</p>
-            <h3>آخرین موقعیت ثبت‌شده</h3>
+            <h3>آخرین موقعیت</h3>
           </div>
-          <StatusBadge tone={locationFresh ? "success" : "warning"}>{locationFresh ? "تازه" : "قدیمی یا نامشخص"}</StatusBadge>
+          <StatusBadge tone={location.state === "fresh" ? "success" : "warning"}>{location.label}</StatusBadge>
         </div>
-
-        <div className="location-summary-grid">
-          <div>
-            <span className="muted">مختصات</span>
-            <strong className="mono">{location ? `${location[0].toFixed(6)}, ${location[1].toFixed(6)}` : "ثبت نشده"}</strong>
-          </div>
-          <div>
-            <span className="muted">زمان موقعیت</span>
-            <strong>{formatTelemetryTime(locationTime)}</strong>
-          </div>
-          <div>
-            <span className="muted">وضعیت GNSS</span>
-            <strong>{locationFresh ? "موقعیت تازه دریافت شد" : location ? "وضعیت فعلی نامشخص" : "موقعیتی ثبت نشده"}</strong>
-          </div>
-        </div>
-
-        <button
-          className="secondary-btn"
-          type="button"
-          onClick={() => onNavigate(VIEWS.ROUTES)}
-        >
+        {point ? <DeviceMap location={point} stale={point.stale} height={220} /> : <div className="empty-state compact-empty">{location.detail}</div>}
+        {point && <p className={point.stale ? "warning-text small-text" : "muted small-text"}>{location.detail}</p>}
+        <button className="secondary-btn" type="button" onClick={() => onNavigate(VIEWS.ROUTES)}>
           مشاهده نقشه و مسیرها
         </button>
       </section>
 
+      <ConnectionCheck />
+      <RelayControl />
+
       <section className="two-column">
         <ActionCard
-          icon={<Radio />}
-          title="دستگاه نگهبان"
-          text={`کد ${device.deviceCode || "—"} · آخرین دریافت: ${formatTelemetryTime(data.latestTelemetry?.received_at || device.lastSeen)}`}
-          action="اطلاعات دستگاه"
-          onClick={() => onNavigate(VIEWS.VEHICLE)}
+          icon={<Activity />}
+          title="MPU / IMU"
+          text="رویدادهای حرکتی ثبت‌شده توسط نگهبان."
+          action="مشاهده رویدادها"
+          onClick={() => onNavigate(VIEWS.MPU)}
         />
         <ActionCard
           icon={<Route />}
-          title="نقاط ثبت‌شده"
-          text={`${data.routeHistory?.length || 0} موقعیت واقعی در تاریخچه دستگاه`}
-          action="مشاهده نقشه"
+          title="تاریخچه مسیر"
+          text="نقاط ثبت‌شده و مسیر اخیر دستگاه."
+          action="مشاهده تاریخچه"
           onClick={() => onNavigate(VIEWS.ROUTES)}
         />
       </section>
-      <p className="device-help muted">برای بررسی وضعیت حساب یا ارتباط API، از <button className="link-btn" type="button" onClick={() => onNavigate(VIEWS.PROFILE)}>پروفایل</button> استفاده کنید.</p>
     </>
   );
 }

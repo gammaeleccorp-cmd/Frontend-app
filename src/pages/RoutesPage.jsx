@@ -1,59 +1,99 @@
-import { useState } from "react";
-import { MapContainer, TileLayer, Polyline, CircleMarker } from "react-leaflet";
-import { MapPinned, RefreshCcw, Route } from "lucide-react";
+import { CalendarDays, MapPinned, Route } from "lucide-react";
 import PageHeader from "../components/PageHeader";
 import StatusBadge from "../components/StatusBadge";
-import { formatTelemetryTime } from "../utils/telemetry.mjs";
+import DeviceMap from "../components/DeviceMap";
+import ConnectionCheck from "../components/ConnectionCheck";
+import DeviceLiveCard from "../components/DeviceLiveCard";
+import { describeConnection, describeLocation, useLiveDevice } from "../state/liveDevice";
+import { formatDateTime, formatNumber } from "../utils/time";
 
-export default function RoutesPage({ routePoints = [], routeHistory = [], deviceCode, online, historyError, onSync, syncing = false, onBack }) {
-  const [tilesFailed, setTilesFailed] = useState(false);
-  const [mapVersion, setMapVersion] = useState(0);
-  const points = routePoints.filter((point) => Array.isArray(point) && point.length === 2 && point.every(Number.isFinite));
-  const lastPoint = points.at(-1);
-  const latest = routeHistory[0];
-  const retryMap = () => { setTilesFailed(false); setMapVersion((version) => version + 1); };
-
-  return <section className="page-section">
-    <PageHeader eyebrow="ROUTES" title="نقشه و موقعیت‌ها" subtitle={`داده‌های ثبت‌شدهٔ دستگاه ${deviceCode || "—"}`} onBack={onBack}
-      action={<StatusBadge tone={online ? "success" : "warning"}>{online ? "داده تازه" : "داده قدیمی"}</StatusBadge>} />
-
-    <section className="panel map-panel">
-      <div className="map-wrap full-map">
-        {lastPoint ? <>
-          <MapContainer key={`${lastPoint.join(",")}-${mapVersion}`} center={lastPoint} zoom={13} scrollWheelZoom={false}>
-            <TileLayer attribution="&copy; OpenStreetMap contributors" url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-              eventHandlers={{ tileerror: () => setTilesFailed(true), tileload: () => setTilesFailed(false) }} />
-            {points.length > 1 && <Polyline positions={points} color="#ff6b1a" />}
-            <CircleMarker center={lastPoint} radius={9} pathOptions={{ color: "#ff6b1a", fillColor: "#ff6b1a", fillOpacity: 0.7 }} />
-          </MapContainer>
-          {tilesFailed && <div className="map-error-overlay" role="alert">کاشی‌های نقشه بارگذاری نشدند. مختصات در پایین قابل مشاهده‌اند.<button type="button" className="secondary-btn" onClick={retryMap}>تلاش مجدد</button></div>}
-        </> : <div className="empty-state map-empty">{historyError || "هنوز موقعیت واقعی از دستگاه دریافت نشده است."}</div>}
-      </div>
-      <div className="route-summary">
-        <Summary icon={<MapPinned size={17} />} label="آخرین مختصات" value={lastPoint ? `${lastPoint[0].toFixed(6)}, ${lastPoint[1].toFixed(6)}` : "—"} mono />
-        <Summary icon={<Route size={17} />} label="نقاط معتبر" value={String(points.length)} />
-        <Summary icon={<RefreshCcw size={17} />} label="زمان آخرین موقعیت" value={formatTelemetryTime(latest?.recordedAt)} />
-      </div>
-      {historyError && <p className="form-error" role="alert">{historyError}</p>}
-      <button type="button" className="secondary-btn route-refresh" disabled={syncing} onClick={onSync}>
-        <RefreshCcw size={16} className={syncing ? "spin" : ""} />{syncing ? "در حال به‌روزرسانی..." : "به‌روزرسانی موقعیت‌ها"}
-      </button>
-    </section>
-
-    <section className="panel">
-      <div className="section-title"><h3>نقاط ثبت‌شده</h3><span className="muted small-text">{routeHistory.length} مورد</span></div>
-      <div className="route-list">
-        {routeHistory.map((item) => <article className="route-row" key={item.id}>
-          <div className="route-icon"><MapPinned size={18} /></div>
-          <div className="route-row-main"><strong>{item.date}</strong><span className="muted mono">{item.coordinates?.map((value) => value.toFixed(6)).join(", ")}</span></div>
-          <div className="route-row-meta"><span className="muted">{item.speed == null ? "" : `${item.speed} km/h`}</span></div>
-        </article>)}
-      </div>
-      {!routeHistory.length && <div className="empty-state">هنوز موقعیتی در تاریخچه ثبت نشده است.</div>}
-    </section>
-  </section>;
+// Groups real telemetry points by device session into route rows.
+export function summarizeRoutes(points = []) {
+  const sessions = new Map();
+  for (const point of points) {
+    const key = point.session_id || "—";
+    const item = sessions.get(key) || { id: key, start: point.recorded_at, end: point.recorded_at, count: 0, distance: 0, last: null };
+    if (item.last) item.distance += haversineKm(item.last, point);
+    item.last = point;
+    item.end = point.recorded_at;
+    item.count += 1;
+    sessions.set(key, item);
+  }
+  return [...sessions.values()].sort((a, b) => Date.parse(b.end) - Date.parse(a.end));
 }
 
-function Summary({ icon, label, value, mono = false }) {
-  return <div className="route-summary-item"><span className="summary-icon">{icon}</span><span className="muted">{label}</span><strong className={mono ? "mono" : ""}>{value}</strong></div>;
+function haversineKm(a, b) {
+  const rad = (value) => (value * Math.PI) / 180;
+  const dLat = rad(b.latitude - a.latitude);
+  const dLon = rad(b.longitude - a.longitude);
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(rad(a.latitude)) * Math.cos(rad(b.latitude)) * Math.sin(dLon / 2) ** 2;
+  return 6371 * 2 * Math.asin(Math.min(1, Math.sqrt(h)));
+}
+
+export default function RoutesPage({ onBack }) {
+  const live = useLiveDevice();
+  const connection = describeConnection(live);
+  const location = describeLocation(live.status);
+  const point = live.status?.location;
+  const routes = summarizeRoutes(live.route);
+
+  return (
+    <section className="page-section">
+      <PageHeader
+        eyebrow="ROUTES"
+        title="نقشه و تاریخچه مسیر"
+        subtitle="موقعیت واقعی و نقاط ثبت‌شده نگهبان"
+        onBack={onBack}
+        action={<StatusBadge tone={connection.tone === "online" ? "success" : "warning"}>{connection.label}</StatusBadge>}
+      />
+
+      <section className="panel map-panel">
+        {point || live.route.length
+          ? <DeviceMap location={point} points={live.route} stale={point?.stale} />
+          : <div className="empty-state">{live.loading && !live.status ? "در حال دریافت موقعیت..." : location.detail}</div>}
+        <div className="route-summary">
+          <Summary label="آخرین موقعیت" value={point ? formatDateTime(point.recorded_at) : "—"} icon={<MapPinned size={17} />} />
+          <Summary label="وضعیت موقعیت" value={location.label} icon={<Route size={17} />} />
+          <Summary label="آخرین ارتباط" value={live.status?.last_seen ? formatDateTime(live.status.last_seen) : "—"} icon={<CalendarDays size={17} />} />
+        </div>
+        {point?.stale && <p className="warning-text small-text">{location.detail}</p>}
+      </section>
+
+      <ConnectionCheck />
+      <DeviceLiveCard />
+
+      <section className="panel">
+        <div className="section-title">
+          <h3>مسیرهای اخیر</h3>
+          <span className="muted small-text">{formatNumber(routes.length)} مورد</span>
+        </div>
+        <div className="route-list">
+          {routes.map((route) => (
+            <article className="route-row" key={route.id}>
+              <div className="route-icon"><Route size={18} /></div>
+              <div className="route-row-main">
+                <strong>{formatDateTime(route.start)}</strong>
+                <span className="muted">تا {formatDateTime(route.end)}</span>
+              </div>
+              <div className="route-row-meta">
+                <strong>{formatNumber(route.distance, 1)} km</strong>
+                <span className="muted">{formatNumber(route.count)} نقطه</span>
+              </div>
+            </article>
+          ))}
+        </div>
+        {!routes.length && <div className="empty-state">هنوز نقطهٔ مسیری با GPS معتبر ثبت نشده است.</div>}
+      </section>
+    </section>
+  );
+}
+
+function Summary({ label, value, icon }) {
+  return (
+    <div className="route-summary-item">
+      <span className="summary-icon">{icon}</span>
+      <span className="muted">{label}</span>
+      <strong>{value}</strong>
+    </div>
+  );
 }

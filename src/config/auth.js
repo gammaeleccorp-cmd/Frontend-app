@@ -1,4 +1,8 @@
+// Production OTP is exactly 5 digits. Always handled as a
+// string so leading zeros are preserved.
 export const OTP_LENGTH = 5;
+// Digits per row in the OTP input grid (10 digits => 2 rows of 5).
+export const OTP_GROUP_SIZE = 5;
 
 export const MOCK_SESSION_KEY = "gamma_mock_session";
 export const MOCK_ACCOUNTS_KEY = "gamma_mock_accounts";

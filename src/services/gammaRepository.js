@@ -12,7 +12,6 @@ import {
   mockNegahbanStatus,
   MOCK_DEVICES,
   MOCK_USERS,
-  PRODUCTS,
   getUserProducts,
   normalizeProductType,
 } from "../data/mockData";
@@ -28,8 +27,8 @@ import {
   writeMockSession,
 } from "../config/auth";
 import { formatPlateValue, isCompletePlate, normalizePlateValue } from "../components/PlateInput";
-import { normalizeDigits } from "../utils/validation";
-import { jalaliToIso } from "../utils/jalali.mjs";
+import { asciiDigits, normalizeDeviceCode } from "../utils/deviceCode";
+import { parseJalaliBirthDate } from "../utils/jalaliDate";
 import { coordinates, isTelemetryFresh, normalizeTelemetryHistory } from "../utils/telemetry.mjs";
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -223,13 +222,31 @@ function telemetryToMetrics(telemetry) {
       },
     ],
     negahbanMetrics: [
-      ["سرعت", pick(telemetry, "speed", "vehicle_speed"), "km/h", "gauge"],
-      ["ولتاژ باتری", pick(telemetry, "battery_voltage", "voltage"), "V", "battery"],
-      ["کیلومترشمار", pick(telemetry, "odometer"), "km", "route"],
-      ["کدهای خطا", pick(telemetry, "dtc_count"), "مورد", "activity"],
-    ].filter(([, value]) => value != null).map(([label, value, unit, icon]) => ({
-      label, value: String(value), unit, icon,
-    })),
+      {
+        label: "سرعت",
+        value: String(pick(telemetry, "speed", "vehicle_speed") ?? "—"),
+        unit: "km/h",
+        icon: "gauge",
+      },
+      {
+        label: "مسافت امروز",
+        value: String(pick(telemetry, "distance_today", "daily_distance") ?? "—"),
+        unit: "km",
+        icon: "route",
+      },
+      {
+        label: "توقف‌ها",
+        value: String(pick(telemetry, "stops", "stop_count") ?? "—"),
+        unit: "مورد",
+        icon: "pin",
+      },
+      {
+        label: "MPU",
+        value: String(pick(telemetry, "mpu_status", "imu_status") ?? "عادی"),
+        unit: "",
+        icon: "activity",
+      },
+    ],
   };
 }
 
@@ -285,13 +302,13 @@ function assertOtp(code) {
 }
 
 export function validateVehicle(vehicle = {}) {
-  const vin = String(vehicle.vin || "").toUpperCase();
+  const vin = String(vehicle.vin || "").replace(/\s/g, "").toUpperCase();
   const plateValue = normalizePlateValue(vehicle.plate_number);
   const plate = formatPlateValue(plateValue);
   const productionYear = String(vehicle.production_year || "");
   return {
-    valid: Boolean(isCompletePlate(plateValue) && /^[A-HJ-NPR-Z0-9]{17}$/.test(vin) && !/\s/.test(vin) && String(vehicle.model || "").trim() && String(vehicle.color || "").trim() && /^\d{4}$/.test(productionYear) && Number(productionYear) >= 1300 && Number(productionYear) <= 1500),
-    normalized: { plate_number: plate, plate: plateValue, vin, model: String(vehicle.model || "").trim(), color: String(vehicle.color || "").trim(), production_year: Number(productionYear) },
+    valid: Boolean(isCompletePlate(plateValue) && (!vin || /^[A-HJ-NPR-Z0-9]{17}$/.test(vin)) && String(vehicle.model || "").trim() && String(vehicle.color || "").trim() && /^\d{4}$/.test(productionYear) && Number(productionYear) >= 1300 && Number(productionYear) <= 1500),
+    normalized: { plate_number: plate, plate: plateValue, ...(vin ? { vin } : {}), model: String(vehicle.model || "").trim(), color: String(vehicle.color || "").trim(), production_year: Number(productionYear) },
   };
 }
 
@@ -299,9 +316,14 @@ export async function validateDeviceSerial(serial) {
   if (!runtime.useMockApi) {
     try {
       const result = await gammaApi.validateDeviceCode(serial);
+      if (!result || result.device_code !== serial || typeof result.available !== "boolean") {
+        return { state: "error", serial, message: "پاسخ اعتبارسنجی سرور معتبر نیست. دوباره تلاش کنید." };
+      }
       return { state: result.available ? "valid" : "already_assigned", serial: result.device_code, productType: result.product_type, device: result };
     } catch (error) {
-      return { state: error?.status === 409 ? "already_assigned" : "invalid", serial };
+      if (error?.status === 409) return { state: "already_assigned", serial };
+      if (error?.status === 400 || error?.status === 404 || error?.status === 422) return { state: "invalid", serial };
+      return { state: "error", serial, message: error?.status === 0 ? "ارتباط با سرور برقرار نشد. دوباره تلاش کنید." : "خطای سرور در بررسی دستگاه. دوباره تلاش کنید." };
     }
   }
   await sleep(250);
@@ -315,24 +337,26 @@ export async function bindDevice(payload) {
   if (runtime.useMockApi) {
     throw new Error("فعال‌سازی دستگاه در حالت آزمایشی در دسترس نیست.");
   }
-  const deviceCode = normalizeDeviceCode(payload.deviceCode);
-  if (!deviceCode) throw new Error("کد عمومی دستگاه معتبر نیست.");
-  return gammaApi.activateDevice({ device_code: deviceCode });
-}
-
-export function normalizeDeviceCode(value) {
-  const match = /^(NG|RH|LM)-(\d{1,4})$/.exec(normalizeDigits(value).trim().toUpperCase().replaceAll("_", "-"));
-  return match ? `${match[1]}-${match[2].padStart(4, "0")}` : "";
+  const code = normalizeDeviceCode(payload.deviceCode);
+  if (!code) throw new Error('کد عمومی دستگاه معتبر نیست.');
+  try {
+    return await gammaApi.activateDevice({ device_code: code });
+  } catch (error) {
+    if (error?.status === 404) throw new Error("دستگاه پیدا نشد.");
+    if (error?.status === 0) throw new Error("ارتباط با سرور برقرار نشد. اتصال اینترنت را بررسی و دوباره تلاش کنید.");
+    throw error;
+  }
 }
 
 export async function requestLoginOtp(mobile) {
+  mobile = asciiDigits(mobile);
   assertMobile(mobile);
   if (runtime.useMockApi) {
     await sleep(350);
     if (!findMockUser(mobile)) throw new Error("حسابی با این شماره موبایل پیدا نشد.");
     return { ok: true };
   }
-  return authApi.requestOtp(mobile, undefined, "login");
+  return authApi.requestOtp(mobile, undefined, 'login');
 }
 
 export function requestOtp(mobile) {
@@ -340,37 +364,18 @@ export function requestOtp(mobile) {
 }
 
 export async function requestRegistrationOtp(registration) {
-  assertMobile(registration.mobile);
-  const birthDate = jalaliToIso(registration.birthDate);
-  if (!birthDate) throw new Error("تاریخ تولد شمسی معتبر نیست.");
-  if (!registration.firstName?.trim() || !registration.lastName?.trim()) throw new Error("نام و نام خانوادگی را وارد کنید.");
-  if (!["NEGAHBAN", "RAHBAN", "LUMINEN"].includes(registration.deviceModel)) throw new Error("مدل دستگاه را انتخاب کنید.");
-  if (runtime.useMockApi && findMockUser(registration.mobile)) throw new Error("این شماره موبایل قبلاً ثبت شده است.");
-  if (runtime.useMockApi) {
-    await sleep(350);
-    return { ok: true, productType: registration.deviceModel };
-  }
-  return authApi.requestOtp(registration.mobile, {
-    firstName: registration.firstName.trim(),
-    lastName: registration.lastName.trim(),
-    birthDate,
-    deviceModel: registration.deviceModel,
-  });
+  const mobile = asciiDigits(registration.mobile);
+  assertMobile(mobile);
+  const birthDate = parseJalaliBirthDate(registration.birthDate);
+  if (!birthDate) throw new Error('تاریخ تولد شمسی معتبر نیست.');
+  const profile = { firstName: registration.firstName.trim(), lastName: registration.lastName.trim(), birthDate, deviceModel: registration.deviceModel };
+  if (runtime.useMockApi) return { ok: true };
+  return authApi.requestOtp(mobile, profile);
 }
 
 export function registerUser(registration) {
-  const user = {
-    id: `mock-${registration.mobile}`,
-    mobile: registration.mobile,
-    first_name: registration.firstName,
-    last_name: registration.lastName,
-    birth_date: jalaliToIso(registration.birthDate),
-    preferred_product: registration.deviceModel,
-    vehicles: [],
-    devices: [],
-  };
-  const accounts = readMockAccounts().filter((item) => item.mobile !== user.mobile);
-  writeMockAccounts([...accounts, user]);
+  const user = { id: 'mock-' + registration.mobile, mobile: registration.mobile, first_name: registration.firstName, last_name: registration.lastName, birth_date: parseJalaliBirthDate(registration.birthDate), preferred_product: registration.deviceModel, devices: [], vehicles: [] };
+  writeMockAccounts([...readMockAccounts().filter(item => item.mobile !== user.mobile), user]);
   return user;
 }
 
@@ -386,7 +391,7 @@ export async function verifyOtp({ mobile, code, flow = "login", registration, re
     writeMockSession({ access: "mock-access-token", user, vehicles: vehicles || [], devices: sessionDevices, activeProduct: sessionDevices[0]?.product_type }, rememberMe);
     return { ok: true };
   }
-  return authApi.verifyOtp(mobile, code);
+  return authApi.verifyOtp(asciiDigits(mobile), asciiDigits(code));
 }
 
 export function hasSession() {
@@ -398,12 +403,12 @@ export async function resendOtp({ flow = "login", mobile, registration }) {
     await sleep(250);
     return { ok: true, mobile };
   }
-  return flow === "registration" ? requestRegistrationOtp(registration) : authApi.requestOtp(mobile, undefined, "login");
+  return flow === "registration" ? requestRegistrationOtp(registration) : authApi.requestOtp(mobile);
 }
 
-export function logout() {
-  authApi.logout();
+export async function logout() {
   clearMockSession();
+  await authApi.logout();
 }
 
 async function legacyRequestOtp(mobile) {
@@ -486,87 +491,151 @@ export async function getBootstrapData() {
     return mockSnapshot();
   }
 
-  const [vehiclesResult, devices, meResult] = await Promise.all([
-    gammaApi.listVehicles().catch(() => []),
+  const [devices, meResult] = await Promise.all([
     gammaApi.listDevices(),
     authApi.getMe(),
   ]);
-  const vehicles = vehiclesResult;
-  const firstDeviceRaw = devices[0] || null;
-  const firstVehicleRaw = vehicles.find((item) => item.id === firstDeviceRaw?.vehicle_id) || vehicles[0] || null;
-  const deviceCode = firstDeviceRaw?.device_code || null;
-  const negahban = normalizeProductType(firstDeviceRaw?.product_type) === PRODUCTS.NEGAHBAN;
-  const user = {
-    firstName: pick(meResult, "first_name", "firstName") || "",
-    lastName: pick(meResult, "last_name", "lastName") || "",
-    mobile: pick(meResult, "mobile", "phone") || "",
-    nationalId: pick(meResult, "national_id", "nationalId") || "",
-    birthDate: pick(meResult, "birth_date", "birthDate") || "",
-  };
+  const snapshot = buildSnapshot(meResult, devices);
+  const deviceCode = devices[0]?.device_code;
+  if (!deviceCode) return snapshot;
 
-  if (!firstDeviceRaw && !firstVehicleRaw) {
-    return {
-      user, vehicle: null, vehicles, devices, allowedProducts: [],
-      luminenMetrics: [], negahbanMetrics: [], dtcs: [], ecuParameters: [],
-      routePoints: [], routeHistory: [], mpuEvents: [], connection: {}, negahbanStatus: {},
-    };
-  }
-
-  const vehicle = firstVehicleRaw ? normalizeVehicle(firstVehicleRaw) : {};
-  const telemetryRequests = deviceCode
-    ? [
-        gammaApi.getLatestDeviceTelemetry(deviceCode),
-        gammaApi.getDeviceTelemetryHistory(deviceCode),
-      ]
-    : firstVehicleRaw && !negahban ? [
-        gammaApi.getLatestTelemetry(firstVehicleRaw.id),
-        gammaApi.getTelemetryHistory(firstVehicleRaw.id),
-      ] : [Promise.resolve(null), Promise.resolve([])];
-
-  const [telemetry, history] = await Promise.allSettled(telemetryRequests);
-
-  const latestTelemetry =
-    telemetry.status === "fulfilled" ? telemetry.value : null;
-
-  const historyItems =
-    history.status === "fulfilled" ? history.value : [];
-
-  const routes = deviceCode ? normalizeTelemetryHistory(historyItems) : normalizeRoutes(historyItems);
-  const dtcs = [];
-  const mpuEvents = [];
+  const [telemetry, history] = await Promise.allSettled([
+    gammaApi.getLatestDeviceTelemetry(deviceCode),
+    gammaApi.getDeviceTelemetryHistory(deviceCode),
+  ]);
+  const latestTelemetry = telemetry.status === "fulfilled" ? telemetry.value : null;
+  const historyItems = history.status === "fulfilled" ? history.value : [];
+  const routes = normalizeTelemetryHistory(historyItems);
+  const lastLocation = coordinates(latestTelemetry) || routes.routeHistory[0]?.coordinates || null;
   const metrics = telemetryToMetrics(latestTelemetry);
   const online = isTelemetryFresh(latestTelemetry);
-  const lastLocation = coordinates(latestTelemetry) || routes.routeHistory[0]?.coordinates || null;
-  const gnssStatus = isTelemetryFresh({ recorded_at: latestTelemetry?.recorded_at }) && coordinates(latestTelemetry)
-    ? "موقعیت تازه دریافت شد"
-    : lastLocation ? "فقط موقعیت ثبت‌شده" : "موقعیتی ثبت نشده";
 
   return {
-    user,
-    vehicle: { ...vehicle, deviceSerial: deviceCode || vehicle.deviceSerial, deviceCode, productType: firstDeviceRaw?.product_type, deviceStatus: firstDeviceRaw?.status, lastSeen: firstDeviceRaw?.last_seen },
-    vehicles,
-    devices,
-    allowedProducts: [...new Set(devices.map((device) => normalizeProductType(device.product_type)))],
+    ...snapshot,
     ...metrics,
     latestTelemetry,
     lastLocation,
-    telemetryError: telemetry.status === "rejected" ? "آخرین دادهٔ دستگاه دریافت نشد." : "",
-    historyError: history.status === "rejected" ? "تاریخچهٔ موقعیت دریافت نشد." : "",
-    dtcs,
-    ecuParameters: telemetryToEcuParameters(latestTelemetry),
     routePoints: routes.routePoints,
     routeHistory: routes.routeHistory,
-    mpuEvents,
+    telemetryError: telemetry.status === "rejected" ? "آخرین دادهٔ دستگاه دریافت نشد." : "",
+    historyError: history.status === "rejected" ? "تاریخچهٔ موقعیت دریافت نشد." : "",
     connection: {
       server: { status: online ? "داده تازه" : "بدون داده تازه" },
-      gnss: { status: gnssStatus },
+      gnss: { status: lastLocation ? "موقعیت ثبت‌شده" : "موقعیتی ثبت نشده" },
     },
-    negahbanStatus: {
-      online,
-      sync: { status: "تاریخچهٔ ثبت‌شده" },
-    },
+    negahbanStatus: { online },
   };
 }
+
+function normalizeUser(me) {
+  return {
+    firstName: pick(me, "first_name", "firstName") || "",
+    lastName: pick(me, "last_name", "lastName") || "",
+    mobile: pick(me, "mobile", "phone") || "",
+    nationalId: pick(me, "national_id", "nationalId") || "",
+    birthDate: pick(me, "birth_date", "birthDate") || "",
+    emergencyPhone: pick(me, "emergency_phone") || "",
+  };
+}
+
+export function normalizeVehicleDetails(raw) {
+  if (!raw) return null;
+  const details = {
+    id: raw.id,
+    make: raw.make || "",
+    model: raw.model || "",
+    productionYear: raw.production_year ? String(raw.production_year) : "",
+    color: raw.color || "",
+    plate: raw.license_plate || "",
+  };
+  details.hasDetails = Boolean(details.make || details.model || details.productionYear || details.color || details.plate);
+  return details;
+}
+
+// The dashboard is keyed by the bound device, not by vehicle data: a device
+// activated without vehicle details must still show its real state.
+export function buildSnapshot(me, devices = []) {
+  const vehicleDetails = normalizeVehicleDetails(me?.vehicle);
+  const primary = devices[0];
+  return {
+    user: normalizeUser(me),
+    devices,
+    vehicleDetails,
+    vehicle: primary
+      ? {
+          id: vehicleDetails?.id,
+          deviceCode: primary.device_code,
+          productType: normalizeProductType(primary.product_type),
+          deviceStatus: primary.status,
+          online: Boolean(primary.online),
+          lastSeen: primary.last_seen || null,
+          model: vehicleDetails?.model || "",
+          plate: vehicleDetails?.plate || "",
+        }
+      : null,
+    allowedProducts: [...new Set(devices.map((device) => normalizeProductType(device.product_type)))],
+    onboardingRequired: false,
+    vehicles: vehicleDetails ? [vehicleDetails] : [],
+    luminenMetrics: [],
+    negahbanMetrics: [],
+    dtcs: [],
+    ecuParameters: [],
+    routePoints: [],
+    routeHistory: [],
+    mpuEvents: [],
+    connection: {},
+    negahbanStatus: {},
+  };
+}
+
+export function deviceForProduct(data, product) {
+  const devices = data?.devices || [];
+  return devices.find((device) => normalizeProductType(device.product_type) === product) || devices[0] || null;
+}
+
+export async function getDeviceStatus(deviceCode, signal) {
+  if (runtime.useMockApi || !deviceCode) return null;
+  return gammaApi.getDeviceStatus(deviceCode, signal);
+}
+
+export async function getDeviceRoute(deviceCode, signal) {
+  if (runtime.useMockApi || !deviceCode) return [];
+  return gammaApi.getDeviceTelemetry(deviceCode, signal);
+}
+
+export async function sendDeviceCommand(deviceCode, commandType) {
+  if (runtime.useMockApi) throw new Error("ارسال فرمان در حالت آزمایشی در دسترس نیست.");
+  return gammaApi.createDeviceCommand(deviceCode, commandType);
+}
+
+export async function getCommand(commandId, signal) {
+  return gammaApi.getCommand(commandId, signal);
+}
+
+export async function listNotifications(signal) {
+  if (runtime.useMockApi) return { unread_count: 0, items: [] };
+  return gammaApi.listNotifications(signal);
+}
+
+export async function markNotificationsRead() {
+  if (runtime.useMockApi) return { unread_count: 0 };
+  return gammaApi.markNotificationsRead();
+}
+
+export async function listSessions() {
+  if (runtime.useMockApi) return [];
+  const sessions = await authApi.listSessions();
+  const current = authApi.currentRefreshJti();
+  return (Array.isArray(sessions) ? sessions : []).map((item) => ({ ...item, current: Boolean(current) && item.jti === current }));
+}
+
+export async function revokeOtherSessions() {
+  return authApi.revokeOtherSessions();
+}
+
+void telemetryToEcuParameters;
+void normalizeRoutes;
+void normalizeVehicle;
 
 export async function testBackendConnection() {
   if (runtime.useMockApi) {

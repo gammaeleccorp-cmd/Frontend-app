@@ -5,7 +5,10 @@ export const endpoints = {
     requestOtp: "/api/v1/auth/otp/request/",
     verifyOtp: "/api/v1/auth/otp/verify/",
     refresh: "/api/v1/auth/otp/refresh/",
+    logout: "/api/v1/auth/otp/logout/",
     me: "/api/v1/auth/otp/me/",
+    sessions: "/api/v1/auth/otp/sessions/",
+    revokeOtherSessions: "/api/v1/auth/otp/sessions/revoke-others/",
   },
   vehicles: {
     list: "/api/v1/vehicles/",
@@ -16,6 +19,16 @@ export const endpoints = {
     list: "/api/v1/devices/",
     validate: "/api/v1/devices/validate/",
     activate: "/api/v1/devices/activate/",
+    status: (deviceCode) => `/api/v1/devices/${encodeURIComponent(deviceCode)}/status/`,
+    telemetry: (deviceCode) => `/api/v1/devices/${encodeURIComponent(deviceCode)}/telemetry/`,
+  },
+  commands: {
+    create: "/api/v1/commands/",
+    detail: (commandId) => `/api/v1/commands/${commandId}/`,
+  },
+  notifications: {
+    list: "/api/v1/notifications/",
+    read: "/api/v1/notifications/read/",
   },
   telemetry: {
     latest: (vehicleId) => `/api/v1/telemetry/vehicles/${vehicleId}/latest/`,

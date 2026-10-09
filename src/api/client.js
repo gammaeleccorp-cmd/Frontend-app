@@ -19,6 +19,10 @@ export function getAccessToken() {
   return localStorage.getItem(ACCESS_KEY);
 }
 
+export function getRefreshToken() {
+  return localStorage.getItem(REFRESH_KEY);
+}
+
 export function setTokens(tokens) {
   clearTokens();
   storeTokens(tokens);
@@ -42,7 +46,7 @@ function expireSession(version) {
 }
 
 async function refreshAccessToken() {
-  const refresh = localStorage.getItem(REFRESH_KEY);
+  const refresh = getRefreshToken();
   if (!refresh) return false;
   const version = sessionVersion;
   if (!refreshTask || refreshTask.version !== version) {
