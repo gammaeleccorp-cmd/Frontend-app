@@ -2,7 +2,7 @@ name: Frontend CI
 on:
   pull_request:
   push:
-    branches: [main]
+    branches: [main, 'sprint10/**']
   workflow_dispatch:
 permissions:
   contents: read
