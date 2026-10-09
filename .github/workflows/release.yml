@@ -1,0 +1,91 @@
+name: Approved release
+on:
+  workflow_dispatch:
+    inputs:
+      ci_run_id:
+        description: Successful default-branch CI run containing the artifact
+        required: true
+        type: string
+      source_commit:
+        description: Full source commit SHA to stage
+        required: true
+        type: string
+      activate:
+        description: Request production approval after staging (leave false for rehearsal)
+        default: false
+        type: boolean
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: production-frontend
+  cancel-in-progress: false
+jobs:
+  stage:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    environment: release-staging
+    timeout-minutes: 15
+    env:
+      SHA: ${{ inputs.source_commit }}
+      RUN_ID: ${{ inputs.ci_run_id }}
+      GH_TOKEN: ${{ github.token }}
+      VPS_HOST: ${{ secrets.VPS_HOST }}
+      VPS_USER: ${{ secrets.VPS_USER }}
+      VPS_PORT: ${{ secrets.VPS_PORT }}
+      SSH_KEY: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+      KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify successful trusted source run
+        run: |
+          [[ "$SHA" =~ ^[0-9a-f]{40}$ && "$RUN_ID" =~ ^[0-9]+$ ]]
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID" > run.json
+          jq -e --arg sha "$SHA" '.head_sha == $sha and .head_branch == "main" and .conclusion == "success" and (.event == "push" or .event == "workflow_dispatch") and .path == ".github/workflows/ci.yml"' run.json
+      - uses: actions/download-artifact@v4
+        with:
+          name: frontend-${{ inputs.source_commit }}
+          path: release
+          run-id: ${{ inputs.ci_run_id }}
+          github-token: ${{ github.token }}
+      - name: Verify and stage the same artifact
+        run: |
+          [[ "$(cat release/SOURCE_COMMIT)" == "$SHA" ]]
+          sha256sum -c release/SHA256SUMS
+          [[ "$VPS_HOST" =~ ^[a-zA-Z0-9.-]+$ && "$VPS_USER" =~ ^[a-zA-Z0-9_-]+$ && "$VPS_PORT" =~ ^[0-9]+$ ]]
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_ed25519
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/id_ed25519 ~/.ssh/known_hosts
+          remote="$VPS_USER@$VPS_HOST"
+          inbox="/home/gamma/releases/sprint10/inbox/frontend-$SHA"
+          ssh -p "$VPS_PORT" -o BatchMode=yes -o StrictHostKeyChecking=yes "$remote" "mkdir -p '$inbox'"
+          scp -P "$VPS_PORT" -o BatchMode=yes -o StrictHostKeyChecking=yes release/frontend.tgz deploy/release.py deploy/backup_db.py "$remote:$inbox/"
+          digest=$(sha256sum release/frontend.tgz | cut -d ' ' -f 1)
+          ssh -p "$VPS_PORT" -o BatchMode=yes -o StrictHostKeyChecking=yes "$remote" "python3 '$inbox/release.py' stage frontend --sha '$SHA' --archive '$inbox/frontend.tgz' --digest '$digest'"
+          echo "Staged frontend $SHA from CI run $RUN_ID; production untouched" >> "$GITHUB_STEP_SUMMARY"
+  activate:
+    needs: stage
+    if: inputs.activate && vars.ENABLE_PRODUCTION_DEPLOYMENT == 'true'
+    runs-on: ubuntu-24.04
+    environment:
+      name: production
+      url: https://app.gamma-tech.ir
+    timeout-minutes: 20
+    env:
+      SHA: ${{ inputs.source_commit }}
+      VPS_HOST: ${{ secrets.VPS_HOST }}
+      VPS_USER: ${{ secrets.VPS_USER }}
+      VPS_PORT: ${{ secrets.VPS_PORT }}
+      SSH_KEY: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+      KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
+    steps:
+      - name: Activate only after protected-environment approval
+        run: |
+          [[ "$SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$VPS_HOST" =~ ^[a-zA-Z0-9.-]+$ && "$VPS_USER" =~ ^[a-zA-Z0-9_-]+$ && "$VPS_PORT" =~ ^[0-9]+$ ]]
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_ed25519
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/id_ed25519 ~/.ssh/known_hosts
+          ssh -p "$VPS_PORT" -o BatchMode=yes -o StrictHostKeyChecking=yes "$VPS_USER@$VPS_HOST" "python3 '/home/gamma/releases/sprint10/inbox/frontend-$SHA/release.py' activate frontend --sha '$SHA'"

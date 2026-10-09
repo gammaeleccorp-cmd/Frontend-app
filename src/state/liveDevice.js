@@ -9,13 +9,17 @@ export function useLiveDevice() {
 
 // One interpretation of the server state, shared by header, home, routes and
 // vehicle pages so they can never disagree.
-export function describeConnection({ status, loading, error, deviceCode }) {
+export function describeConnection({ status, loading, error, deviceCode, fetchedAt, now = Date.now() }) {
   if (!deviceCode) return { tone: "unknown", label: "بدون دستگاه", detail: "هنوز دستگاهی به حساب متصل نشده است." };
   if (!status) {
     if (error) return { tone: "unknown", label: "وضعیت نامشخص", detail: error };
     return { tone: "unknown", label: loading ? "در حال بررسی" : "وضعیت نامشخص", detail: "در حال دریافت وضعیت از سرور..." };
   }
-  if (status.online) {
+  const serverAge = ageOf(status.server_time, status.last_seen);
+  const elapsed = Number.isFinite(fetchedAt) ? Math.max(0, (now - fetchedAt) / 1000) : 0;
+  const timeout = Number(status.online_timeout_seconds ?? 300);
+  const fresh = serverAge !== null && Number.isFinite(timeout) && serverAge + elapsed <= timeout;
+  if (status.online && fresh && !error) {
     return { tone: "online", label: "آنلاین", detail: `آخرین ارتباط ${formatAge(ageOf(status.server_time, status.last_seen))}` };
   }
   if (status.last_seen) {

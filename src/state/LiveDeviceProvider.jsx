@@ -6,6 +6,13 @@ import { LiveDeviceContext } from "./liveDevice";
 export default function LiveDeviceProvider({ deviceCode, refreshSeconds, children }) {
   const [state, setState] = useState({ status: null, route: [], loading: Boolean(deviceCode), error: "", fetchedAt: 0 });
   const inFlight = useRef(null);
+  const [now, setNow] = useState(Date.now);
+
+  // Expire cached online status even when polling is disabled or fails.
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   const refresh = useCallback(async () => {
     if (!deviceCode) return null;
@@ -43,6 +50,6 @@ export default function LiveDeviceProvider({ deviceCode, refreshSeconds, childre
     return () => { window.clearInterval(timer); document.removeEventListener("visibilitychange", onVisible); };
   }, [deviceCode, refreshSeconds, refresh]);
 
-  const value = useMemo(() => ({ ...state, refresh, deviceCode }), [state, refresh, deviceCode]);
+  const value = useMemo(() => ({ ...state, refresh, deviceCode, now }), [state, refresh, deviceCode, now]);
   return <LiveDeviceContext.Provider value={value}>{children}</LiveDeviceContext.Provider>;
 }

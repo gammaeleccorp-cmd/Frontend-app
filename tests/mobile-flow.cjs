@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('fs');
 const path = require('path');
 (async () => {
-  const browser = await chromium.launch(process.env.CHROMIUM_PATH?{executablePath:process.env.CHROMIUM_PATH,headless:true}:{channel:'msedge', headless:true});
+  const browser = await chromium.launch({executablePath:process.env.CHROMIUM_PATH || undefined,headless:true});
   const page = await browser.newPage({viewport:{width:390,height:844}, deviceScaleFactor:1, isMobile:true, hasTouch:true});
   const requests=[], errors=[]; let bound=false, failBinding=0;
   page.on('pageerror', e=>errors.push(e.message));

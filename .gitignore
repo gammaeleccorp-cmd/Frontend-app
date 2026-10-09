@@ -7,3 +7,5 @@ dist/
 .vscode/
 .DS_Store
 _motion_pack_v4/
+
+test-results/
