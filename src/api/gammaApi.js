@@ -53,3 +53,15 @@ export async function getLatestDeviceTelemetry(deviceCode) {
 export async function updateVehicle(vehicleId, changes) {
   return apiRequest(endpoints.vehicles.detail(vehicleId), { method: "PATCH", body: changes });
 }
+
+export async function attachDeviceVehicle(deviceCode, payload) {
+  return apiRequest(endpoints.devices.vehicle(deviceCode), { method: "POST", body: payload });
+}
+
+export async function createDeviceCommand(deviceCode, commandType) {
+  return apiRequest(endpoints.commands.create, { method: "POST", body: { device_code: deviceCode, command_type: commandType } });
+}
+
+export async function getCommand(commandId) {
+  return apiRequest(endpoints.commands.detail(commandId));
+}

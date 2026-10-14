@@ -30,6 +30,7 @@ import {
 import { formatPlateValue, isCompletePlate, normalizePlateValue } from "../components/PlateInput";
 import { normalizeDigits } from "../utils/validation";
 import { jalaliToIso } from "../utils/jalali.mjs";
+import { vehiclePayload } from "../utils/vehicle.mjs";
 import { coordinates, isTelemetryFresh, normalizeTelemetryHistory } from "../utils/telemetry.mjs";
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -496,7 +497,11 @@ export async function getBootstrapData() {
   ]);
   const vehicles = vehiclesResult;
   const firstDeviceRaw = devices[0] || null;
-  const firstVehicleRaw = vehicles.find((item) => item.id === firstDeviceRaw?.vehicle_id) || vehicles[0] || null;
+  // A device shows only the vehicle linked to its own active binding; another
+  // vehicle of the same account must not be presented as this device's vehicle.
+  const firstVehicleRaw = firstDeviceRaw
+    ? vehicles.find((item) => firstDeviceRaw.vehicle_id && item.id === firstDeviceRaw.vehicle_id) || null
+    : vehicles[0] || null;
   const deviceCode = firstDeviceRaw?.device_code || null;
   const negahban = normalizeProductType(firstDeviceRaw?.product_type) === PRODUCTS.NEGAHBAN;
   const user = {
@@ -583,7 +588,40 @@ export async function updateProfile(changes) {
 }
 
 export async function updateVehicle(vehicleId, changes) {
-  return gammaApi.updateVehicle(vehicleId, changes);
+  const { payload, errors } = vehiclePayload(changes, { requireOne: false });
+  if (Object.keys(errors).length) throw Object.assign(new Error(Object.values(errors)[0]), { fieldErrors: errors });
+  return gammaApi.updateVehicle(vehicleId, payload);
+}
+
+/** Save optional vehicle details and link them to this device's active binding. */
+export async function registerDeviceVehicle(deviceCode, form) {
+  const { payload, errors } = vehiclePayload(form);
+  if (Object.keys(errors).length) throw Object.assign(new Error(Object.values(errors)[0]), { fieldErrors: errors });
+  if (runtime.useMockApi) throw new Error("ثبت خودرو در حالت آزمایشی در دسترس نیست.");
+  const code = normalizeDeviceCode(deviceCode);
+  if (!code) throw new Error("کد دستگاه معتبر نیست.");
+  return gammaApi.attachDeviceVehicle(code, payload);
+}
+
+/**
+ * Send RELAY_ON / RELAY_OFF by device code. A 409 means an earlier relay command
+ * is still in flight: that command is returned so the UI follows it instead.
+ */
+export async function sendRelayCommand(deviceCode, commandType) {
+  if (!["RELAY_ON", "RELAY_OFF"].includes(commandType)) throw new Error("فرمان نامعتبر است.");
+  if (runtime.useMockApi) throw Object.assign(new Error("کنترل رله در حالت آزمایشی در دسترس نیست."), { status: -1 });
+  const code = normalizeDeviceCode(deviceCode);
+  if (!code) throw Object.assign(new Error("کد دستگاه معتبر نیست."), { status: 404 });
+  try {
+    return { command: await gammaApi.createDeviceCommand(code, commandType), existing: false };
+  } catch (error) {
+    if (error?.status === 409 && error.payload?.command?.id) return { command: error.payload.command, existing: true };
+    throw error;
+  }
+}
+
+export async function getCommand(commandId) {
+  return gammaApi.getCommand(commandId);
 }
 
 export async function checkOta(_deviceId) {
