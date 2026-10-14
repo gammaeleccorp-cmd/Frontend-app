@@ -1,6 +1,10 @@
 // Keep backend route assumptions in one place.
 // Once Django urls.py is final, adjust only this file.
 export const endpoints = {
+  health: {
+    // Readiness probe: only a JSON body with status "healthy" counts as connected.
+    ready: "/api/v1/health/ready/",
+  },
   auth: {
     requestOtp: "/api/v1/auth/otp/request/",
     verifyOtp: "/api/v1/auth/otp/verify/",
