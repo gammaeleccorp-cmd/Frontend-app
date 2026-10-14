@@ -79,6 +79,9 @@ function mockSnapshot(session = readMockSession()) {
   const activeProduct = normalizeProductType(session?.activeProduct || devices[0]?.product_type);
   const activeDevice = devices.find((device) => normalizeProductType(device.product_type) === activeProduct) || devices[0];
   const activeVehicle = vehicles.find((vehicle) => vehicle.id === activeDevice?.vehicle_id) || vehicles[0];
+  const allowedProducts = getUserProducts({ devices });
+  // DTC/ECU data belongs to Rahban only; a Negahban-only account must not carry it.
+  const hasRahban = allowedProducts.includes(PRODUCTS.RAHBAN);
 
   return {
     user: {
@@ -89,13 +92,13 @@ function mockSnapshot(session = readMockSession()) {
     },
     vehicles,
     devices,
-    allowedProducts: getUserProducts({ devices }),
+    allowedProducts,
     activeProduct,
     vehicle: activeVehicle && activeDevice ? { ...mockVehicle, id: activeVehicle.id, vin: activeVehicle.vin, model: activeVehicle.model, year: String(activeVehicle.production_year), plate: activeVehicle.plate_number, deviceSerial: activeDevice.serial } : mockVehicle,
     luminenMetrics: mockLuminenMetrics,
     negahbanMetrics: mockNegahbanMetrics,
-    dtcs: mockDtcs,
-    ecuParameters: mockEcuParameters,
+    dtcs: hasRahban ? mockDtcs : [],
+    ecuParameters: hasRahban ? mockEcuParameters : [],
     routePoints: mockRoutePoints,
     routeHistory: mockRouteHistory,
     mpuEvents: mockMpuEvents,
@@ -226,7 +229,7 @@ function telemetryToMetrics(telemetry) {
       ["سرعت", pick(telemetry, "speed", "vehicle_speed"), "km/h", "gauge"],
       ["ولتاژ باتری", pick(telemetry, "battery_voltage", "voltage"), "V", "battery"],
       ["کیلومترشمار", pick(telemetry, "odometer"), "km", "route"],
-      ["کدهای خطا", pick(telemetry, "dtc_count"), "مورد", "activity"],
+      // Negahban is a GPS tracker: no DTC / error-code counter for this product.
     ].filter(([, value]) => value != null).map(([label, value, unit, icon]) => ({
       label, value: String(value), unit, icon,
     })),
@@ -553,7 +556,7 @@ export async function getBootstrapData() {
     telemetryError: telemetry.status === "rejected" ? "آخرین دادهٔ دستگاه دریافت نشد." : "",
     historyError: history.status === "rejected" ? "تاریخچهٔ موقعیت دریافت نشد." : "",
     dtcs,
-    ecuParameters: telemetryToEcuParameters(latestTelemetry),
+    ecuParameters: negahban ? [] : telemetryToEcuParameters(latestTelemetry),
     routePoints: routes.routePoints,
     routeHistory: routes.routeHistory,
     mpuEvents,
@@ -570,7 +573,7 @@ export async function getBootstrapData() {
 
 export async function testBackendConnection() {
   if (runtime.useMockApi) {
-    return { reachable: true, status: 200, mock: true };
+    return { healthy: true, reason: "healthy", status: 200, mock: true };
   }
   return probeBackend();
 }

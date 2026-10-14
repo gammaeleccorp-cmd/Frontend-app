@@ -1,4 +1,5 @@
 import { runtime } from "../config/runtime";
+import { endpoints } from "../config/endpoints";
 
 const ACCESS_KEY = "gamma_access_token";
 const REFRESH_KEY = "gamma_refresh_token";
@@ -154,20 +155,37 @@ async function request(path, options, canRefresh, version) {
   return payload;
 }
 
-export async function probeBackend() {
+export const HEALTH_CHECK_TIMEOUT_MS = 8000;
+
+/**
+ * Checks the backend readiness endpoint.
+ * Success only when the response is 2xx AND its body is JSON with status "healthy".
+ * Any 404/5xx, HTML page, unhealthy status, network failure or timeout is a failure.
+ * `reason` is for UI wording; `status` is kept for debugging and must not be shown to customers.
+ */
+export async function probeBackend({ timeoutMs = HEALTH_CHECK_TIMEOUT_MS } = {}) {
+  const controller = new AbortController();
+  let timedOut = false;
+  const timer = setTimeout(() => { timedOut = true; controller.abort(); }, timeoutMs);
   try {
-    const response = await fetch(runtime.apiBaseUrl, {
+    const response = await fetch(`${runtime.apiBaseUrl}${endpoints.health.ready}`, {
       method: "GET",
-      headers: { Accept: "text/html,application/json" },
+      headers: { Accept: "application/json" },
+      cache: "no-store",
+      signal: controller.signal,
     });
-    return {
-      reachable: true,
-      status: response.status,
-    };
+    if (!response.ok) return { healthy: false, reason: "unavailable", status: response.status };
+    let payload = null;
+    try {
+      payload = JSON.parse(await response.text());
+    } catch {
+      return { healthy: false, reason: "invalid_response", status: response.status };
+    }
+    if (payload?.status !== "healthy") return { healthy: false, reason: "unhealthy", status: response.status };
+    return { healthy: true, reason: "healthy", status: response.status };
   } catch {
-    return {
-      reachable: false,
-      status: 0,
-    };
+    return { healthy: false, reason: timedOut ? "timeout" : "network", status: 0 };
+  } finally {
+    clearTimeout(timer);
   }
 }

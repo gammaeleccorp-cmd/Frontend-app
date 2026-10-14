@@ -29,9 +29,11 @@ test("Negahban pages render without a vehicle or fresh telemetry", async () => {
     assert.match(vehicle, /NG-0001/);
 
     const profile = renderToStaticMarkup(createElement(ProfilePage, { user: { firstName: "آزمایش", mobile: "09120000000", birthDate: "1995-03-21" }, onBack() {}, onLogout() {}, onTestBackend() {}, onUpdate() {} }));
-    assert.match(profile, /تست اتصال Backend/);
+    assert.match(profile, /بررسی اتصال/);
+    assert.doesNotMatch(profile, /Backend/);
     assert.doesNotMatch(profile, /در نسخه فعلی در دسترس نیست/);
-    assert.match(profile, /readonly=""/);
+    const editProfile = renderToStaticMarkup(createElement(ProfilePage, { user: { firstName: "آزمایش", mobile: "09120000000", birthDate: "1995-03-21" }, defaultView: "edit", onBack() {}, onLogout() {}, onTestBackend() {}, onUpdate() {} }));
+    assert.match(editProfile, /readonly=""/);
 
     const originalFetch = globalThis.fetch;
     const originalStorage = globalThis.localStorage;
