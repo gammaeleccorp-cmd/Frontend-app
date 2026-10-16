@@ -508,7 +508,6 @@ export async function getBootstrapData() {
     firstName: pick(meResult, "first_name", "firstName") || "",
     lastName: pick(meResult, "last_name", "lastName") || "",
     mobile: pick(meResult, "mobile", "phone") || "",
-    nationalId: pick(meResult, "national_id", "nationalId") || "",
     birthDate: pick(meResult, "birth_date", "birthDate") || "",
   };
 
