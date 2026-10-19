@@ -7,9 +7,7 @@ export default function MpuPage({ events = [], onBack }) {
     String(event.type).includes("ناگهانی")
   ).length;
 
-  const severeCount = events.filter((event) =>
-    ["شدید", "بحرانی"].includes(event.level)
-  ).length;
+  const crashCount = events.filter((event) => event.type === "تصادف").length;
 
   return (
     <section className="page-section">
@@ -23,7 +21,7 @@ export default function MpuPage({ events = [], onBack }) {
       <section className="three-stat-grid">
         <Stat icon={<Activity />} label="وضعیت فعلی" value="عادی" tone="success" />
         <Stat icon={<Move3d />} label="حرکت ناگهانی" value={String(suddenCount)} />
-        <Stat icon={<AlertTriangle />} label="ضربه شدید" value={String(severeCount)} tone="success" />
+        <Stat icon={<AlertTriangle />} label="تصادف ثبت‌شده" value={String(crashCount)} tone={crashCount ? "warning" : "success"} />
       </section>
 
       <section className="panel">
@@ -39,6 +37,8 @@ export default function MpuPage({ events = [], onBack }) {
               <div className="event-main">
                 <strong>{event.type}</strong>
                 <span className="muted">{event.time}</span>
+                {event.speed != null && <span className="muted">سرعت: {event.speed} km/h</span>}
+                {event.latitude != null && event.longitude != null && <a className="link-btn" href={`https://www.google.com/maps?q=${event.latitude},${event.longitude}`} target="_blank" rel="noreferrer">مشاهده موقعیت</a>}
               </div>
               <StatusBadge
                 tone={
@@ -68,7 +68,7 @@ function Stat({ icon, label, value, tone }) {
     <article className="stat-card">
       <div className="stat-icon">{icon}</div>
       <span className="muted">{label}</span>
-      <strong className={tone === "success" ? "success-text" : ""}>
+      <strong className={tone === "success" ? "success-text" : tone === "warning" ? "warning-text" : ""}>
         {value}
       </strong>
     </article>

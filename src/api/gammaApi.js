@@ -65,3 +65,11 @@ export async function createDeviceCommand(deviceCode, commandType) {
 export async function getCommand(commandId) {
   return apiRequest(endpoints.commands.detail(commandId));
 }
+
+export async function getNotifications() {
+  return apiRequest(endpoints.notifications.list);
+}
+
+export async function markNotificationsRead() {
+  return apiRequest(endpoints.notifications.read, { method: "POST" });
+}
