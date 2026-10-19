@@ -162,17 +162,31 @@ function legacyAppFrame({ data, setData }) {
 function AppFrame({ data, setData }) {
   const navigate = useNavigate();
   const location = useLocation();
+  const firstName = data.user?.firstName?.trim();
   const allowedProducts = data.allowedProducts?.length ? data.allowedProducts : getUserProducts(data.user);
   const storedProduct = normalizeProductType(localStorage.getItem("gamma_product"));
   const [product, setProduct] = useState(() => allowedProducts.includes(storedProduct) ? storedProduct : allowedProducts[0] || PRODUCTS.NEGAHBAN);
   const [now, setNow] = useState(Date.now());
   const [toast, setToast] = useState("");
+  const [showWelcome, setShowWelcome] = useState(true);
+  useEffect(() => {
+    const timer = window.setTimeout(() => setShowWelcome(false), 4000);
+    return () => window.clearTimeout(timer);
+  }, []);
   useEffect(() => { if (allowedProducts.length && !allowedProducts.includes(product)) setProduct(allowedProducts[0]); }, [allowedProducts, product]);
   useEffect(() => { const timer = window.setInterval(() => setNow(Date.now()), 30_000); return () => window.clearInterval(timer); }, []);
   const showToast = (message) => { setToast(message); window.setTimeout(() => setToast(""), 2400); };
   const changeProduct = (next) => { const normalized = normalizeProductType(next); if (!allowedProducts.includes(normalized)) return; localStorage.setItem("gamma_product", normalized); setProduct(normalized); navigate("/home"); };
   const logout = () => { repo.logout(); navigate("/login", { replace: true }); };
-  return <main className="app-shell"><AppHeader product={product} vehicle={data.vehicle} availableProducts={allowedProducts} onProductChange={changeProduct} online={isTelemetryFresh(data.latestTelemetry, now)} /><PageTransition key={location.pathname} className="content-shell"><Outlet context={{ data, setData, product, now, allowedProducts, setProduct: changeProduct, showToast, logout }} /></PageTransition><BottomNav product={product} path={location.pathname} onNavigate={navigate} />{toast && <div className="toast" role="status">{toast}</div>}</main>;
+  return <main className="app-shell">
+    <AppHeader product={product} vehicle={data.vehicle} availableProducts={allowedProducts} onProductChange={changeProduct} online={isTelemetryFresh(data.latestTelemetry, now)} />
+    <PageTransition key={location.pathname} className="content-shell">
+      <Outlet context={{ data, setData, product, now, allowedProducts, setProduct: changeProduct, showToast, logout }} />
+    </PageTransition>
+    <BottomNav product={product} path={location.pathname} onNavigate={navigate} />
+    {showWelcome && <div className="toast welcome-toast" role="status" dir="rtl">کاربر عزیز{firstName && <>، <bdi>{firstName}</bdi></>}، خوش آمدید!</div>}
+    {toast && <div className="toast" role="status">{toast}</div>}
+  </main>;
 }
 
 function useApp() { return useOutletContext(); }

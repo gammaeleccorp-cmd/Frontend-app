@@ -63,20 +63,21 @@ test("profile is a collapsed bar first, readable on open, editable via ویرا�
   assert.match(details, /aria-expanded="true"/);
   assert.match(details, /<dl/);
   assert.match(details, /1374\/01\/01/);
-  assert.match(details, /0012345678/);
+  assert.doesNotMatch(details, /0012345678/);
   assert.doesNotMatch(details, /<input/);
 
   const edit = renderToStaticMarkup(createElement(ProfilePage, { ...props, defaultView: "edit" }));
   assert.match(edit, /<form/);
   assert.match(edit, /value="1374\/01\/01"/);
   assert.match(edit, /id="mobile"[^>]*readonly=""/);
-  assert.match(edit, /id="national-id"[^>]*readonly=""/);
+  assert.doesNotMatch(edit, /id="national-id"/);
   assert.match(edit, />ذخیره</);
   assert.match(edit, />انصراف</);
 
   for (const html of [closed, details, edit]) {
     assert.match(html, /بررسی اتصال/);
     assert.doesNotMatch(html, /Backend|HTTP/);
+    assert.doesNotMatch(html, /کد ملی|0012345678/);
   }
   for (const reason of ["unavailable", "invalid_response", "unhealthy", "network", "timeout"]) {
     const message = connectionMessage({ healthy: false, reason, status: 503 });

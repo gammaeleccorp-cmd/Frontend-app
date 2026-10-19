@@ -9,6 +9,7 @@ import {
   Wifi,
 } from "lucide-react";
 import MetricCard from "../components/MetricCard";
+import Speedometer from "../components/Speedometer";
 import StatusBadge from "../components/StatusBadge";
 import GammaStatus from "../components/motion/GammaStatus";
 import { PRODUCTS, VIEWS } from "../data/mockData";
@@ -151,7 +152,9 @@ function NegahbanHome({ data, now, onNavigate }) {
 
       <section className="metrics negahban-metrics">
         {data.negahbanMetrics.map((item) => (
-          <MetricCard key={item.label} item={item} />
+          item.unit === "km/h"
+            ? <Speedometer key={item.label} value={item.value} fresh={online} />
+            : <MetricCard key={item.label} item={item} />
         ))}
       </section>
       {!data.negahbanMetrics.length && <div className="empty-state">هنوز دادهٔ اندازه‌گیری از دستگاه دریافت نشده است.</div>}
