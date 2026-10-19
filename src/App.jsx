@@ -162,24 +162,44 @@ function legacyAppFrame({ data, setData }) {
 function AppFrame({ data, setData }) {
   const navigate = useNavigate();
   const location = useLocation();
+  const firstName = data.user?.firstName?.trim();
   const allowedProducts = data.allowedProducts?.length ? data.allowedProducts : getUserProducts(data.user);
   const storedProduct = normalizeProductType(localStorage.getItem("gamma_product"));
   const [product, setProduct] = useState(() => allowedProducts.includes(storedProduct) ? storedProduct : allowedProducts[0] || PRODUCTS.NEGAHBAN);
   const [now, setNow] = useState(Date.now());
   const [toast, setToast] = useState("");
+  const [showWelcome, setShowWelcome] = useState(true);
+  useEffect(() => {
+    const timer = window.setTimeout(() => setShowWelcome(false), 4000);
+    return () => window.clearTimeout(timer);
+  }, []);
   useEffect(() => { if (allowedProducts.length && !allowedProducts.includes(product)) setProduct(allowedProducts[0]); }, [allowedProducts, product]);
   useEffect(() => { const timer = window.setInterval(() => setNow(Date.now()), 30_000); return () => window.clearInterval(timer); }, []);
   const showToast = (message) => { setToast(message); window.setTimeout(() => setToast(""), 2400); };
   const changeProduct = (next) => { const normalized = normalizeProductType(next); if (!allowedProducts.includes(normalized)) return; localStorage.setItem("gamma_product", normalized); setProduct(normalized); navigate("/home"); };
   const logout = () => { repo.logout(); navigate("/login", { replace: true }); };
-  return <main className="app-shell"><AppHeader product={product} vehicle={data.vehicle} availableProducts={allowedProducts} onProductChange={changeProduct} online={isTelemetryFresh(data.latestTelemetry, now)} /><PageTransition key={location.pathname} className="content-shell"><Outlet context={{ data, setData, product, now, allowedProducts, setProduct: changeProduct, showToast, logout }} /></PageTransition><BottomNav product={product} path={location.pathname} onNavigate={navigate} />{toast && <div className="toast" role="status">{toast}</div>}</main>;
+  return <main className="app-shell">
+    <AppHeader product={product} vehicle={data.vehicle} availableProducts={allowedProducts} onProductChange={changeProduct} online={isTelemetryFresh(data.latestTelemetry, now)} />
+    <PageTransition key={location.pathname} className="content-shell">
+      <Outlet context={{ data, setData, product, now, allowedProducts, setProduct: changeProduct, showToast, logout }} />
+    </PageTransition>
+    <BottomNav product={product} path={location.pathname} onNavigate={navigate} />
+    {showWelcome && <div className="toast welcome-toast" role="status" dir="rtl">کاربر عزیز{firstName && <>، <bdi>{firstName}</bdi></>}، خوش آمدید!</div>}
+    {toast && <div className="toast" role="status">{toast}</div>}
+  </main>;
 }
 
 function useApp() { return useOutletContext(); }
 function useBack(fallback = "/home") { const navigate = useNavigate(); return () => { if (window.history.state?.idx > 0) navigate(-1); else navigate(fallback); }; }
 function HomeRoute() { const { data, product, now } = useApp(); const navigate = useNavigate(); if (!data.devices?.length) return <WelcomeStartPage onStart={() => navigate("/add-device")} />; return <><div className="home-actions"><button className="secondary-btn" type="button" onClick={() => navigate("/add-device")}>افزودن دستگاه</button></div><HomePage product={product} data={data} now={now} onNavigate={(path) => navigate(path.startsWith("/") ? path : `/${path}`)} onDtcOpen={(dtc) => navigate(`/diagnostics/${dtc.code}`, { state: { dtc } })} /></>; }
 function AddDeviceRoute() { const { setData } = useApp(); const navigate = useNavigate(); const [busy, setBusy] = useState(false); const [error, setError] = useState(""); const submit = async (payload) => { setBusy(true); setError(""); try { await repo.bindDevice(payload); setData(await repo.getBootstrapData()); navigate("/home"); } catch (err) { setError(err?.message || "اتصال دستگاه ناموفق بود."); } finally { setBusy(false); } }; return <DeviceOnboardingPage loading={busy} error={error} onSubmit={submit} onBack={() => navigate("/home")} />; }
-function VehicleRoute() { const { data, product, now, setData, showToast } = useApp(); const navigate = useNavigate(); const update = async (changes) => { if (!data.vehicle?.id) return; const raw = await repo.updateVehicle(data.vehicle.id, changes); setData((current) => ({ ...current, vehicle: { ...current.vehicle, ...raw, model: raw.model, year: String(raw.production_year || "—"), plate: raw.license_plate, color: raw.color } })); showToast("اطلاعات خودرو ذخیره شد."); }; return <VehiclePage product={product} data={data} now={now} onUpdate={update} onRoutes={() => navigate("/routes")} onBack={useBack()} />; }
+function VehicleRoute() {
+  const { data, product, now, setData, showToast } = useApp(); const navigate = useNavigate();
+  const update = async (changes) => { if (!data.vehicle?.id) return; const raw = await repo.updateVehicle(data.vehicle.id, changes); setData((current) => ({ ...current, vehicle: { ...current.vehicle, ...raw, id: current.vehicle.id, model: raw.model || "—", year: String(raw.production_year || "—"), production_year: raw.production_year, plate: raw.license_plate || "—", color: raw.color || "—" } })); showToast("اطلاعات خودرو ذخیره شد."); };
+  // Optional vehicle details for a device bound without them; refresh so the link shows everywhere.
+  const register = async (form) => { await repo.registerDeviceVehicle(data.vehicle?.deviceCode, form); setData(await repo.getBootstrapData()); showToast("اطلاعات خودرو ثبت شد."); };
+  return <VehiclePage product={product} data={data} now={now} onUpdate={update} onRegisterVehicle={register} onSendRelay={repo.sendRelayCommand} onPollCommand={repo.getCommand} onRoutes={() => navigate("/routes")} onBack={useBack()} />;
+}
 function DiagnosticsRoute() { const { product, data } = useApp(); const navigate = useNavigate(); if (product !== PRODUCTS.LUMINEN) return <Navigate to="/home" replace />; return <DiagnosticsPage dtcs={data.dtcs} onBack={() => navigate("/home")} onOpenDtc={(dtc) => navigate(`/diagnostics/${dtc.code}`, { state: { dtc } })} />; }
 function DtcRoute() { const { product, data } = useApp(); const { code } = useParams(); const location = useLocation(); const back = useBack("/diagnostics"); if (product !== PRODUCTS.LUMINEN) return <Navigate to="/home" replace />; const dtc = location.state?.dtc || data.dtcs.find((item) => item.code === code); return <DtcDetailPage dtc={dtc} onBack={back} />; }
 function EcuRoute() { const { product, data, setData, showToast } = useApp(); const back = useBack(); const [refreshing, setRefreshing] = useState(false); if (product !== PRODUCTS.LUMINEN) return <Navigate to="/home" replace />; const refresh = async () => { setRefreshing(true); try { setData(await repo.refreshLiveData()); showToast("داده‌های ECU به‌روزرسانی شد."); } catch { showToast("به‌روزرسانی داده‌های ECU ناموفق بود."); } finally { setRefreshing(false); } }; return <EcuLivePage parameters={data.ecuParameters} onRefresh={refresh} refreshing={refreshing} onBack={back} />; }

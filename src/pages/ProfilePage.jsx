@@ -103,7 +103,6 @@ export default function ProfilePage({ user, onTestBackend, onBack, onLogout, onU
         <div><dt>نام خانوادگی</dt><dd>{user?.lastName || "—"}</dd></div>
         <div><dt>تاریخ تولد</dt><dd dir="ltr">{isoToJalali(user?.birthDate) || "—"}</dd></div>
         <div><dt>شماره موبایل</dt><dd dir="ltr">{user?.mobile || "—"}</dd></div>
-        <div><dt>کد ملی</dt><dd dir="ltr">{user?.nationalId || "ثبت نشده"}</dd></div>
       </dl>}
 
       {editing && <form id="profile-panel" className="profile-form" onSubmit={save} onKeyDown={(event) => { if (event.key === "Escape") { event.preventDefault(); cancel(); } }} noValidate>
@@ -113,7 +112,6 @@ export default function ProfilePage({ user, onTestBackend, onBack, onLogout, onU
           <label htmlFor="last-name"><span>نام خانوادگی</span><input id="last-name" autoComplete="family-name" {...field("last_name")} /></label>
           <label htmlFor="birth-date"><span>تاریخ تولد (شمسی)</span><input id="birth-date" placeholder="yyyy/mm/dd" inputMode="numeric" dir="ltr" maxLength={10} {...field("birth_date")} /></label>
           <label htmlFor="mobile"><span>شماره موبایل (غیرقابل ویرایش)</span><input id="mobile" value={user?.mobile || ""} dir="ltr" readOnly aria-readonly="true" /></label>
-          <label htmlFor="national-id"><span>کد ملی (غیرقابل ویرایش)</span><input id="national-id" value={user?.nationalId || "ثبت نشده"} dir="ltr" readOnly aria-readonly="true" /></label>
         </div>
         {saveError && <p className="form-error" role="alert">{saveError}</p>}
         <div className="profile-form-actions">

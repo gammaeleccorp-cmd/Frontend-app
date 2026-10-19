@@ -20,6 +20,12 @@ export const endpoints = {
     list: "/api/v1/devices/",
     validate: "/api/v1/devices/validate/",
     activate: "/api/v1/devices/activate/",
+    // Optional vehicle details for the caller's own active binding (POST).
+    vehicle: (deviceCode) => `/api/v1/devices/${encodeURIComponent(deviceCode)}/vehicle/`,
+  },
+  commands: {
+    create: "/api/v1/commands/",
+    detail: (commandId) => `/api/v1/commands/${encodeURIComponent(commandId)}/`,
   },
   telemetry: {
     latest: (vehicleId) => `/api/v1/telemetry/vehicles/${vehicleId}/latest/`,
