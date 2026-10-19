@@ -133,7 +133,7 @@ test("Negahban telemetry never produces DTC/ECU data; Rahban keeps ECU", async (
   try {
     const negahban = await repo.getBootstrapData();
     const labels = negahban.negahbanMetrics.map((item) => item.label);
-    assert.deepEqual(labels, ["سرعت", "ولتاژ باتری", "کیلومترشمار"]);
+    assert.deepEqual(labels, ["سرعت", "وضعیت ACC", "ولتاژ باتری", "کیلومترشمار"]);
     assert.ok(!JSON.stringify(negahban.negahbanMetrics).includes("خطا"));
     assert.deepEqual(negahban.dtcs, []);
     assert.deepEqual(negahban.ecuParameters, []);

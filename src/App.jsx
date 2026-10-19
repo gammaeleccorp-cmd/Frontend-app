@@ -179,7 +179,18 @@ function AppFrame({ data, setData }) {
   const changeProduct = (next) => { const normalized = normalizeProductType(next); if (!allowedProducts.includes(normalized)) return; localStorage.setItem("gamma_product", normalized); setProduct(normalized); navigate("/home"); };
   const logout = () => { repo.logout(); navigate("/login", { replace: true }); };
   return <main className="app-shell">
-    <AppHeader product={product} vehicle={data.vehicle} availableProducts={allowedProducts} onProductChange={changeProduct} online={isTelemetryFresh(data.latestTelemetry, now)} />
+    <AppHeader
+      product={product}
+      vehicle={data.vehicle}
+      availableProducts={allowedProducts}
+      onProductChange={changeProduct}
+      online={isTelemetryFresh(data.latestTelemetry, now)}
+      notifications={data.notifications}
+      onMarkNotificationsRead={async () => {
+        await repo.markNotificationsRead();
+        setData((current) => ({ ...current, notifications: { unread_count: 0, items: (current.notifications?.items || []).map((item) => ({ ...item, read: true })) } }));
+      }}
+    />
     <PageTransition key={location.pathname} className="content-shell">
       <Outlet context={{ data, setData, product, now, allowedProducts, setProduct: changeProduct, showToast, logout }} />
     </PageTransition>

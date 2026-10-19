@@ -1,4 +1,5 @@
 import {
+  AlertTriangle,
   Bluetooth,
   Car,
   Navigation,
@@ -139,6 +140,7 @@ function NegahbanHome({ data, now, onNavigate }) {
     ? data.latestTelemetry?.recorded_at || data.latestTelemetry?.received_at
     : data.routeHistory?.[0]?.recordedAt;
   const device = data.vehicle || {};
+  const latestCrash = data.mpuEvents?.[0];
 
   return (
     <>
@@ -149,6 +151,15 @@ function NegahbanHome({ data, now, onNavigate }) {
         subtitle={`دستگاه ${device.deviceCode || "—"} · آخرین دریافت: ${latestTime}`}
         warning={!online}
       />
+
+      {latestCrash && <section className="crash-alert" role="alert">
+        <AlertTriangle size={24} aria-hidden="true" />
+        <div>
+          <strong>هشدار تصادف ثبت شد</strong>
+          <p>زمان: {latestCrash.time} · شدت ضربه: {latestCrash.level}{latestCrash.speed != null ? ` · سرعت: ${latestCrash.speed} km/h` : ""}</p>
+        </div>
+        <button type="button" className="secondary-btn" onClick={() => onNavigate(VIEWS.MPU)}>مشاهده جزئیات</button>
+      </section>}
 
       <section className="metrics negahban-metrics">
         {data.negahbanMetrics.map((item) => (

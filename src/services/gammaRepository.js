@@ -31,7 +31,7 @@ import { formatPlateValue, isCompletePlate, normalizePlateValue } from "../compo
 import { normalizeDigits } from "../utils/validation";
 import { jalaliToIso } from "../utils/jalali.mjs";
 import { vehiclePayload } from "../utils/vehicle.mjs";
-import { coordinates, isTelemetryFresh, normalizeTelemetryHistory } from "../utils/telemetry.mjs";
+import { coordinates, formatTelemetryTime, isTelemetryFresh, normalizeTelemetryHistory } from "../utils/telemetry.mjs";
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 let mockConnectionState = structuredClone(mockConnection);
@@ -228,6 +228,7 @@ function telemetryToMetrics(telemetry) {
     ],
     negahbanMetrics: [
       ["سرعت", pick(telemetry, "speed", "vehicle_speed"), "km/h", "gauge"],
+      ["وضعیت ACC", telemetry.device_status === 1 ? "روشن" : telemetry.device_status === 0 ? "خاموش" : "نامشخص", "", "power"],
       ["ولتاژ باتری", pick(telemetry, "battery_voltage", "voltage"), "V", "battery"],
       ["کیلومترشمار", pick(telemetry, "odometer"), "km", "route"],
       // Negahban is a GPS tracker: no DTC / error-code counter for this product.
@@ -235,6 +236,20 @@ function telemetryToMetrics(telemetry) {
       label, value: String(value), unit, icon,
     })),
   };
+}
+
+function telemetryToMpuEvents(items) {
+  return (Array.isArray(items) ? items : [])
+    .filter((item) => String(item.event || "").toLowerCase() === "crash")
+    .map((item) => ({
+      id: item.id,
+      type: "تصادف",
+      level: item.impact_g == null ? "ثبت‌شده" : `${Number(item.impact_g).toFixed(2)} g`,
+      time: formatTelemetryTime(item.recorded_at || item.received_at),
+      speed: item.speed,
+      latitude: item.latitude,
+      longitude: item.longitude,
+    }));
 }
 
 function normalizeRoutes(rawRoutes) {
@@ -490,10 +505,11 @@ export async function getBootstrapData() {
     return mockSnapshot();
   }
 
-  const [vehiclesResult, devices, meResult] = await Promise.all([
+  const [vehiclesResult, devices, meResult, notifications] = await Promise.all([
     gammaApi.listVehicles().catch(() => []),
     gammaApi.listDevices(),
     authApi.getMe(),
+    gammaApi.getNotifications().catch(() => ({ unread_count: 0, items: [] })),
   ]);
   const vehicles = vehiclesResult;
   const firstDeviceRaw = devices[0] || null;
@@ -515,7 +531,7 @@ export async function getBootstrapData() {
     return {
       user, vehicle: null, vehicles, devices, allowedProducts: [],
       luminenMetrics: [], negahbanMetrics: [], dtcs: [], ecuParameters: [],
-      routePoints: [], routeHistory: [], mpuEvents: [], connection: {}, negahbanStatus: {},
+      routePoints: [], routeHistory: [], mpuEvents: [], notifications, connection: {}, negahbanStatus: {},
     };
   }
 
@@ -540,7 +556,7 @@ export async function getBootstrapData() {
 
   const routes = deviceCode ? normalizeTelemetryHistory(historyItems) : normalizeRoutes(historyItems);
   const dtcs = [];
-  const mpuEvents = [];
+  const mpuEvents = telemetryToMpuEvents(historyItems);
   const metrics = telemetryToMetrics(latestTelemetry);
   const online = isTelemetryFresh(latestTelemetry);
   const lastLocation = coordinates(latestTelemetry) || routes.routeHistory[0]?.coordinates || null;
@@ -564,6 +580,7 @@ export async function getBootstrapData() {
     routePoints: routes.routePoints,
     routeHistory: routes.routeHistory,
     mpuEvents,
+    notifications,
     connection: {
       server: { status: online ? "داده تازه" : "بدون داده تازه" },
       gnss: { status: gnssStatus },
@@ -621,6 +638,11 @@ export async function sendRelayCommand(deviceCode, commandType) {
 
 export async function getCommand(commandId) {
   return gammaApi.getCommand(commandId);
+}
+
+export async function markNotificationsRead() {
+  if (runtime.useMockApi) return { unread_count: 0 };
+  return gammaApi.markNotificationsRead();
 }
 
 export async function checkOta(_deviceId) {
