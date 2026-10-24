@@ -1,3 +1,4 @@
+import GeofenceEditor from "../components/GeofenceEditor";
 import { useState } from "react";
 import { MapContainer, TileLayer, Polyline, CircleMarker } from "react-leaflet";
 import { MapPinned, RefreshCcw, Route } from "lucide-react";
@@ -5,7 +6,7 @@ import PageHeader from "../components/PageHeader";
 import StatusBadge from "../components/StatusBadge";
 import { formatTelemetryTime } from "../utils/telemetry.mjs";
 
-export default function RoutesPage({ routePoints = [], routeHistory = [], deviceCode, online, historyError, onSync, syncing = false, onBack }) {
+export default function RoutesPage({ geofence, routePoints = [], routeHistory = [], deviceCode, online, historyError, onSync, syncing = false, onBack }) {
   const [tilesFailed, setTilesFailed] = useState(false);
   const [mapVersion, setMapVersion] = useState(0);
   const points = routePoints.filter((point) => Array.isArray(point) && point.length === 2 && point.every(Number.isFinite));
@@ -39,6 +40,8 @@ export default function RoutesPage({ routePoints = [], routeHistory = [], device
         <RefreshCcw size={16} className={syncing ? "spin" : ""} />{syncing ? "در حال به‌روزرسانی..." : "به‌روزرسانی موقعیت‌ها"}
       </button>
     </section>
+
+    {geofence && <GeofenceEditor key={deviceCode} fence={geofence} deviceCode={deviceCode} lastPoint={lastPoint} />}
 
     <section className="panel">
       <div className="section-title"><h3>نقاط ثبت‌شده</h3><span className="muted small-text">{routeHistory.length} مورد</span></div>

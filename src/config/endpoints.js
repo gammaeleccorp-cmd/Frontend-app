@@ -27,6 +27,10 @@ export const endpoints = {
     create: "/api/v1/commands/",
     detail: (commandId) => `/api/v1/commands/${encodeURIComponent(commandId)}/`,
   },
+  notifications: {
+    list: "/api/v1/notifications/",
+    read: "/api/v1/notifications/read/",
+  },
   telemetry: {
     latest: (vehicleId) => `/api/v1/telemetry/vehicles/${vehicleId}/latest/`,
     history: (vehicleId) => `/api/v1/telemetry/vehicles/${vehicleId}/history/`,

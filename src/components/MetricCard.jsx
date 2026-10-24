@@ -1,4 +1,4 @@
-import { Activity, BatteryCharging, Cpu, Gauge, MapPinned, Route } from "lucide-react";
+import { Activity, BatteryCharging, Cpu, Gauge, MapPinned, Power, Route } from "lucide-react";
 
 const icons = {
   gauge: Gauge,
@@ -7,6 +7,7 @@ const icons = {
   battery: BatteryCharging,
   pin: MapPinned,
   route: Route,
+  power: Power,
 };
 
 export default function MetricCard({ item }) {
