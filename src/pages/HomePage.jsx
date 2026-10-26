@@ -1,3 +1,4 @@
+import GeofenceCard from "../components/GeofenceCard";
 import {
   AlertTriangle,
   Bluetooth,
@@ -22,6 +23,7 @@ export default function HomePage({
   now,
   onNavigate,
   onDtcOpen,
+  geofence,
 }) {
   return product === PRODUCTS.LUMINEN ? (
     <LuminenHome
@@ -30,7 +32,7 @@ export default function HomePage({
       onDtcOpen={onDtcOpen}
     />
   ) : (
-    <NegahbanHome data={data} now={now} onNavigate={onNavigate} />
+    <NegahbanHome data={{ ...data, geofence }} now={now} onNavigate={onNavigate} />
   );
 }
 
@@ -141,6 +143,7 @@ function NegahbanHome({ data, now, onNavigate }) {
     : data.routeHistory?.[0]?.recordedAt;
   const device = data.vehicle || {};
   const latestCrash = data.mpuEvents?.[0];
+  const accMetric = data.negahbanMetrics.find((item) => item.icon === "power") || { label: "وضعیت ACC", value: "نامشخص", unit: "", icon: "power" };
 
   return (
     <>
@@ -162,11 +165,15 @@ function NegahbanHome({ data, now, onNavigate }) {
       </section>}
 
       <section className="metrics negahban-metrics">
-        {data.negahbanMetrics.map((item) => (
+        {data.negahbanMetrics.filter((item) => item.icon !== "power").map((item) => (
           item.unit === "km/h"
             ? <Speedometer key={item.label} value={item.value} fresh={online} />
             : <MetricCard key={item.label} item={item} />
         ))}
+      </section>
+      <section className="metrics negahban-metrics status-metrics">
+        <MetricCard item={accMetric} />
+        <GeofenceCard geofence={data.geofence?.value} loading={data.geofence?.loading} error={data.geofence?.error} onOpen={() => onNavigate(VIEWS.ROUTES)} />
       </section>
       {!data.negahbanMetrics.length && <div className="empty-state">هنوز دادهٔ اندازه‌گیری از دستگاه دریافت نشده است.</div>}
       {data.telemetryError && <p className="form-error" role="alert">{data.telemetryError}</p>}
