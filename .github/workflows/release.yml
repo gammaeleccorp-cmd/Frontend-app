@@ -1,0 +1,169 @@
+name: Frontend Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      ci_run_id:
+        description: Successful trusted Frontend CI run ID
+        required: true
+        type: string
+      source_commit:
+        description: Exact 40-character main commit to release
+        required: true
+        type: string
+      activate:
+        description: Activate the staged release in production
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: production-frontend
+  cancel-in-progress: false
+
+jobs:
+  stage:
+    name: Verify and stage frontend release
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    environment: release-staging
+    env:
+      SOURCE_COMMIT: ${{ inputs.source_commit }}
+      CI_RUN_ID: ${{ inputs.ci_run_id }}
+      VPS_HOST: ${{ secrets.VPS_HOST }}
+      VPS_PORT: ${{ secrets.VPS_PORT }}
+      VPS_USER: ${{ secrets.VPS_USER }}
+    steps:
+      - name: Check out trusted deployment code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Validate requested source and trusted CI run
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          [[ "$SOURCE_COMMIT" =~ ^[0-9a-f]{40}$ ]] || {
+            echo "source_commit must be an exact lowercase 40-character SHA." >&2
+            exit 1
+          }
+          [[ "$CI_RUN_ID" =~ ^[0-9]+$ ]] || {
+            echo "ci_run_id must contain only decimal digits." >&2
+            exit 1
+          }
+
+          run_json="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$CI_RUN_ID")"
+          [[ "$(jq -r '.head_sha' <<<"$run_json")" == "$SOURCE_COMMIT" ]]
+          [[ "$(jq -r '.head_branch' <<<"$run_json")" == "main" ]]
+          [[ "$(jq -r '.status' <<<"$run_json")" == "completed" ]]
+          [[ "$(jq -r '.conclusion' <<<"$run_json")" == "success" ]]
+          event="$(jq -r '.event' <<<"$run_json")"
+          [[ "$event" == "push" || "$event" == "workflow_dispatch" ]]
+          [[ "$(jq -r '.path' <<<"$run_json")" == ".github/workflows/ci.yml" ]]
+
+      - name: Download and safely extract exact draft-release asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          bash deploy/download_release_asset.sh "$SOURCE_COMMIT" "$RUNNER_TEMP/frontend-release" "$RUNNER_TEMP/frontend-release"
+
+      - name: Verify package identities and checksums
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          package_dir="$RUNNER_TEMP/frontend-release/release"
+          [[ "$(cat "$package_dir/SOURCE_COMMIT")" == "$SOURCE_COMMIT" ]]
+          (cd "$package_dir" && sha256sum -c SHA256SUMS)
+
+          inner="$RUNNER_TEMP/frontend-release/dist"
+          python3 deploy/release.py validate-archive --archive "$package_dir/frontend.tgz"
+          python3 deploy/release.py safe-extract --archive "$package_dir/frontend.tgz" --destination "$inner"
+          [[ "$(cat "$inner/SOURCE_COMMIT")" == "$SOURCE_COMMIT" ]]
+          [[ -f "$inner/index.html" ]]
+
+      - name: Configure strict SSH host verification
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          install -d -m 700 "$HOME/.ssh"
+          printf '%s\n' "$SSH_PRIVATE_KEY" > "$HOME/.ssh/id_ed25519"
+          chmod 600 "$HOME/.ssh/id_ed25519"
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/known_hosts"
+          [[ -s "$HOME/.ssh/known_hosts" ]]
+
+      - name: Stage verified frontend package
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          [[ "$VPS_HOST" =~ ^[a-zA-Z0-9.-]+$ ]]
+          [[ "$VPS_USER" =~ ^[a-zA-Z0-9_-]+$ ]]
+          [[ "$VPS_PORT" =~ ^[0-9]+$ ]]
+          remote="$VPS_USER@$VPS_HOST"
+          inbox="/home/gamma/releases/sprint10/inbox/frontend-$SOURCE_COMMIT"
+          ssh -p "$VPS_PORT" -o BatchMode=yes -o StrictHostKeyChecking=yes \
+            "$remote" "mkdir -p '$inbox'"
+          scp -P "$VPS_PORT" -o BatchMode=yes -o StrictHostKeyChecking=yes \
+            "$RUNNER_TEMP/frontend-release/release/frontend.tgz" \
+            deploy/release.py deploy/backup_db.py \
+            "$remote:$inbox/"
+          digest="$(sha256sum "$RUNNER_TEMP/frontend-release/release/frontend.tgz" | cut -d ' ' -f 1)"
+          ssh -p "$VPS_PORT" -o BatchMode=yes -o StrictHostKeyChecking=yes \
+            "$remote" \
+            "python3 '$inbox/release.py' stage frontend --sha '$SOURCE_COMMIT' --archive '$inbox/frontend.tgz' --digest '$digest'"
+          echo "Staged frontend $SOURCE_COMMIT from CI run $CI_RUN_ID; production untouched" >> "$GITHUB_STEP_SUMMARY"
+
+  activate:
+    name: Activate frontend release
+    needs: stage
+    if: inputs.activate && vars.ENABLE_PRODUCTION_DEPLOYMENT == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    environment:
+      name: production
+      url: https://app.gamma-tech.ir
+    env:
+      SOURCE_COMMIT: ${{ inputs.source_commit }}
+      VPS_HOST: ${{ secrets.VPS_HOST }}
+      VPS_PORT: ${{ secrets.VPS_PORT }}
+      VPS_USER: ${{ secrets.VPS_USER }}
+    steps:
+      - name: Configure strict SSH host verification
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          install -d -m 700 "$HOME/.ssh"
+          printf '%s\n' "$SSH_PRIVATE_KEY" > "$HOME/.ssh/id_ed25519"
+          chmod 600 "$HOME/.ssh/id_ed25519"
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/known_hosts"
+          [[ -s "$HOME/.ssh/known_hosts" ]]
+
+      - name: Activate previously staged frontend release
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          [[ "$SOURCE_COMMIT" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$VPS_HOST" =~ ^[a-zA-Z0-9.-]+$ ]]
+          [[ "$VPS_USER" =~ ^[a-zA-Z0-9_-]+$ ]]
+          [[ "$VPS_PORT" =~ ^[0-9]+$ ]]
+          inbox="/home/gamma/releases/sprint10/inbox/frontend-$SOURCE_COMMIT"
+          ssh -p "$VPS_PORT" -o BatchMode=yes -o StrictHostKeyChecking=yes \
+            "$VPS_USER@$VPS_HOST" \
+            "python3 '$inbox/release.py' activate frontend --sha '$SOURCE_COMMIT'"
