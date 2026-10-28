@@ -35,6 +35,7 @@ const path = require('path');
   await page.locator('#mobile').fill('09111111111');
   await page.getByRole('button',{name:'ثبت‌نام',exact:true}).click();
   await page.waitForURL('**/register');
+  await page.getByRole('heading',{name:'ثبت‌نام در گاما',exact:true}).waitFor();
   await page.locator('#mobile').fill('');
   await page.locator('#mobile').pressSequentially('09111111111');
   assert.equal(await page.locator('#mobile').inputValue(),'09111111111');
