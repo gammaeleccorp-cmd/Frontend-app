@@ -54,6 +54,11 @@ const path = require('path');
   const shots=process.env.E2E_SHOTS||path.join(__dirname,'../../screenshots');
   await page.screenshot({path:path.join(shots,'register-mobile.png'),fullPage:true});
   await page.getByRole('button',{name:'دریافت کد تأیید',exact:true}).click();
+  await page.waitForFunction(() => location.pathname === '/otp' || document.querySelector('.form-error,.field-error'));
+  if (new URL(page.url()).pathname !== '/otp') {
+    const failure = await page.locator('.form-error,.field-error').first().innerText();
+    throw new Error(`Registration did not continue: ${failure}`);
+  }
   await page.waitForURL('**/otp');
   const registration=requests.find(r=>r.body?.registration).body;
   assert.deepEqual(Object.keys(registration.registration).sort(),['birthDate','deviceModel','firstName','lastName']);
