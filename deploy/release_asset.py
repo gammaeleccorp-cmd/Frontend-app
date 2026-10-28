@@ -59,6 +59,7 @@ def _validated_members(archive):
     for member in members:
         name = member.name
         path = PurePosixPath(name)
+        canonical = path.as_posix()
         if (
             not name
             or name.startswith(("/", "\\"))
@@ -67,16 +68,17 @@ def _validated_members(archive):
             or path.is_absolute()
             or ".." in path.parts
             or path.parts[0] != "release"
-            or name in seen
+            or canonical in seen
         ):
             raise ValueError(f"Unsafe release asset path: {name}")
         if not (member.isfile() or member.isdir()):
             raise ValueError(f"Links and special archive entries are forbidden: {name}")
-        seen.add(name)
+        seen.add(canonical)
         total_size += member.size
         if total_size >= MAX_ASSET_SIZE:
             raise ValueError("Expanded release asset is too large")
-    if "release" not in seen or not archive.getmember("release").isdir():
+    roots = [member for member in members if PurePosixPath(member.name).as_posix() == "release"]
+    if len(roots) != 1 or not roots[0].isdir():
         raise ValueError("Release asset must contain a release directory")
     return members
 

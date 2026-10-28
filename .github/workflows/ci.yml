@@ -200,18 +200,14 @@ jobs:
             exit 1
           }
 
-          uploaded=false
           if [[ "$asset_count" -eq 0 ]]; then
             gh release upload "$tag" "$asset" --repo "$GITHUB_REPOSITORY"
-            uploaded=true
           fi
 
           rm -rf "$RUNNER_TEMP/release-verify"
           mkdir -p "$RUNNER_TEMP/release-verify"
           bash deploy/download_release_asset.sh "$sha" "$RUNNER_TEMP/release-verify" "$RUNNER_TEMP/release-verify"
-          if [[ "$uploaded" == "true" ]]; then
-            cmp "$asset" "$RUNNER_TEMP/release-verify/$asset"
-          fi
+          cmp "$asset" "$RUNNER_TEMP/release-verify/$asset"
 
           extracted="$RUNNER_TEMP/release-verify/release"
           [[ "$(cat "$extracted/SOURCE_COMMIT")" == "$sha" ]]

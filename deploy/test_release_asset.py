@@ -67,6 +67,22 @@ class ReleaseAssetTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "must be named"):
             release_asset.create(self.release, self.root / "wrong.tar.gz", self.sha)
 
+    def test_rejects_equivalent_duplicate_paths(self):
+        archive_path = self.root / "duplicates.tar.gz"
+        with tarfile.open(archive_path, "w:gz") as archive:
+            root = tarfile.TarInfo("release")
+            root.type = tarfile.DIRTYPE
+            archive.addfile(root)
+            for name in ("release/SOURCE_COMMIT", "release/./SOURCE_COMMIT"):
+                content = self.sha.encode()
+                info = tarfile.TarInfo(name)
+                info.size = len(content)
+                archive.addfile(info, io.BytesIO(content))
+        destination = self.root / "duplicate-out"
+        with self.assertRaisesRegex(ValueError, "Unsafe"):
+            release_asset.extract(archive_path, destination)
+        self.assertFalse((destination / "release" / "SOURCE_COMMIT").exists())
+
     def mock_gh(self, asset):
         mock_bin = self.root / "bin"
         mock_bin.mkdir()

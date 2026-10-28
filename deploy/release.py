@@ -8,7 +8,7 @@ import contextlib
 import hashlib
 import json
 import os
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 import re
 import subprocess
 import tarfile
@@ -46,13 +46,15 @@ def extract(archive, target):
     total_size = 0
     with tarfile.open(archive) as tar:
         for member in tar.getmembers():
-            parts = Path(member.name).parts
-            if (not member.name or member.name.startswith(('/', '\\')) or '..' in parts
-                    or '\\' in member.name or ':' in member.name or member.name in seen):
+            path = PurePosixPath(member.name)
+            canonical = path.as_posix()
+            if (not member.name or member.name.startswith(('/', '\\'))
+                    or '\\' in member.name or ':' in member.name or path.is_absolute()
+                    or '..' in path.parts or canonical in seen):
                 raise ValueError('Unsafe archive path')
             if not (member.isfile() or member.isdir()):
                 raise ValueError('Links and special archive entries are forbidden')
-            seen.add(member.name)
+            seen.add(canonical)
             total_size += member.size
             if total_size >= 2 * 1024 * 1024 * 1024:
                 raise ValueError('Expanded archive is too large')

@@ -66,6 +66,19 @@ class ReleaseTests(unittest.TestCase):
             release.stage(self.root, 'frontend', self.sha, archive, '0' * 64)
         self.assertFalse((self.root.parent / 'escape').exists())
 
+    def test_archive_rejects_equivalent_duplicate_paths(self):
+        archive = self.root / 'duplicates.tgz'
+        with tarfile.open(archive, 'w:gz') as tar:
+            for name in ('index.html', './index.html'):
+                content = name.encode()
+                info = tarfile.TarInfo(name)
+                info.size = len(content)
+                tar.addfile(info, io.BytesIO(content))
+        destination = self.root / 'duplicates'
+        with self.assertRaisesRegex(ValueError, 'Unsafe archive path'):
+            release.extract(archive, destination)
+        self.assertFalse((destination / 'index.html').exists())
+
     def test_bad_commit_marker_is_rejected(self):
         archive = self.archive({'index.html': '<html/>', 'SOURCE_COMMIT': 'b' * 40})
         with self.assertRaises(ValueError):
