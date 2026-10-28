@@ -46,7 +46,7 @@ const path = require('path');
   assert.equal(await page.locator('input:not([type=checkbox])').count(),4);
   for(const id of ['mobile','birthDate']) {
     const style=await page.locator('#'+id).evaluate(el=>({align:getComputedStyle(el).textAlign,dir:getComputedStyle(el).direction,color:getComputedStyle(el).color,placeholder:getComputedStyle(el,'::placeholder').color}));
-    assert.equal(style.align,'center');assert.equal(style.dir,'ltr');assert.notEqual(style.color,style.placeholder);
+    assert.equal(style.align,'start');assert.equal(style.dir,'ltr');assert.notEqual(style.color,style.placeholder);
   }
   assert.equal(await page.locator('#firstName').getAttribute('dir'),'rtl');
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
