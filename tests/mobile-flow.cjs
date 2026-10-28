@@ -94,7 +94,7 @@ const path = require('path');
   await page.waitForURL('**/home');
   // A device bound without vehicle data gets the real dashboard, not the setup card.
   await page.getByText('وضعیت ردیاب',{exact:true}).waitFor();
-  await page.getByText(/دستگاه NG-0001/).waitFor();
+  await page.getByText('دستگاه NG-0001', {exact:true}).waitFor();
   await page.getByText('موقعیتی ثبت نشده',{exact:true}).first().waitFor();
   await page.waitForFunction(() => { const el=document.querySelector('.content-shell'); return el && Number(getComputedStyle(el).opacity)===1; });
   await page.screenshot({path:path.join(shots,'dashboard-mobile.png'),fullPage:true});
