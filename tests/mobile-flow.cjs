@@ -65,7 +65,14 @@ const path = require('path');
   assert.deepEqual(Object.keys(registration.registration).sort(),['birthDate','deviceModel','firstName','lastName']);
   assert.equal(registration.registration.birthDate,'2000-03-20');
   assert.equal(await page.locator('.otp').count(),5);
-  await page.locator('.otp').first().fill('۰۰۱۲۳');
+  for (const [index, digit] of [...'00123'].entries()) {
+      await page.locator('.otp').nth(index).fill(digit);
+    }
+    await page.getByRole('button', {name:'ورود به داشبورد', exact:true}).waitFor({state:'visible'});
+    assert.equal(
+      await page.getByRole('button', {name:'ورود به داشبورد', exact:true}).isEnabled(),
+      true
+    );
   await page.screenshot({path:path.join(shots,'otp-mobile.png'),fullPage:true});
   await page.getByRole('button',{name:'ورود به داشبورد',exact:true}).click();
   await page.waitForURL('**/home');
