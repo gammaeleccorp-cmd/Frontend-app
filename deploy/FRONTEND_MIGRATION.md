@@ -7,10 +7,14 @@ this migration, but it must not activate one. The current production layout is
 
 ## Preconditions and blockers
 
-- Obtain the exact commit and artifact identity of the currently served build.
-  `/SOURCE_COMMIT` currently falls through to `index.html`, so the live build
-  must not be assigned a guessed SHA. Keep `/var/www/gamma-pwa` untouched until
-  a known-good new release is staged and independently checked.
+- Attempt to recover the exact commit and artifact identity of the currently
+  served build from deployment records. `/SOURCE_COMMIT` currently falls
+  through to `index.html`, so if that identity cannot be proven, record it as
+  unknown and capture a deterministic digest of the live files; never assign a
+  guessed SHA. Keep `/var/www/gamma-pwa` untouched until a known-good new
+  release is staged and independently checked. The preserved directory and
+  saved Nginx configuration are the legacy rollback, even when its commit is
+  unknown.
 - Schedule an approved maintenance window with an operator allowed to edit
   Nginx configuration and ACLs and reload Nginx.
 - Keep `ENABLE_PRODUCTION_DEPLOYMENT=false` and do not dispatch an activating
