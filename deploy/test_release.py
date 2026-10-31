@@ -63,7 +63,7 @@ class ReleaseTests(unittest.TestCase):
         }))
         (destination / 'release.json').chmod(0o444)
         (destination / 'index.html').unlink()
-        with self.assertRaisesRegex(ValueError, 'entrypoint is missing'):
+        with self.assertRaisesRegex(ValueError, 'content checksum mismatch'):
             release.stage(self.root, 'frontend', self.sha, archive, digest)
 
     def test_restage_detects_changed_content_even_if_metadata_is_unchanged(self):
