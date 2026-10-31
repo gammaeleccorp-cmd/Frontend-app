@@ -1,0 +1,228 @@
+name: Frontend CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: frontend-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: "22"
+  PYTHON_VERSION: "3.12"
+  VITE_USE_MOCK_API: "false"
+  VITE_API_BASE_URL: "https://api.gamma-tech.ir"
+
+jobs:
+  frontend:
+    name: Frontend checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install JavaScript dependencies
+        run: npm ci
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Run deployment tests
+        run: python -m unittest discover -s deploy -p 'test_*.py' -v
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Type-check
+        run: npm run type-check
+
+      - name: Run unit tests
+        run: npm test
+
+      - name: Build production bundle
+        run: npm run build
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run Playwright end-to-end tests
+        run: npm run test:e2e
+
+  publish-release:
+    name: Publish immutable draft release asset
+    needs: frontend
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    permissions:
+      contents: write
+    steps:
+      - name: Check out the exact trusted commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install JavaScript dependencies
+        run: npm ci
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Re-run deployment tests
+        run: python -m unittest discover -s deploy -p 'test_*.py' -v
+
+      - name: Re-run lint, type-check, and unit tests
+        run: |
+          npm run lint
+          npm run type-check
+          npm test
+
+      - name: Build the exact production bundle to publish
+        run: npm run build
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Re-run Playwright against the exact bundle
+        run: npm run test:e2e
+
+      - name: Create deterministic release archive
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          [[ "$GITHUB_SHA" =~ ^[0-9a-f]{40}$ ]]
+          printf '%s\n' "$GITHUB_SHA" > dist/SOURCE_COMMIT
+          rm -rf release
+          mkdir -p release
+          tar --sort=name \
+            --mtime=@0 \
+            --owner=0 --group=0 --numeric-owner \
+            --format=ustar \
+            -C dist -cf - . | gzip -n -9 > release/frontend.tgz
+          printf '%s\n' "$GITHUB_SHA" > release/SOURCE_COMMIT
+          (
+            cd release
+            sha256sum frontend.tgz SOURCE_COMMIT > SHA256SUMS
+          )
+          python3 deploy/release_asset.py create \
+            --source release \
+            --output "frontend-$GITHUB_SHA.tar.gz" \
+            --sha "$GITHUB_SHA"
+
+      - name: Publish or reuse immutable draft release asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          sha="$GITHUB_SHA"
+          tag="frontend-ci-$sha"
+          asset="frontend-$sha.tar.gz"
+          api="repos/$GITHUB_REPOSITORY"
+
+          [[ "$sha" =~ ^[0-9a-f]{40}$ ]]
+
+          if tag_json="$(gh api "$api/git/ref/tags/$tag" 2>/dev/null)"; then
+            tag_target="$(jq -r '.object.sha' <<<"$tag_json")"
+            tag_type="$(jq -r '.object.type' <<<"$tag_json")"
+            while [[ "$tag_type" == "tag" ]]; do
+              object_json="$(gh api "$api/git/tags/$tag_target")"
+              tag_target="$(jq -r '.object.sha' <<<"$object_json")"
+              tag_type="$(jq -r '.object.type' <<<"$object_json")"
+            done
+            [[ "$tag_type" == "commit" && "$tag_target" == "$sha" ]] || {
+              echo "Refusing to move mismatched tag $tag (target=$tag_target type=$tag_type)." >&2
+              exit 1
+            }
+          else
+            gh api --method POST "$api/git/refs" \
+              -f ref="refs/tags/$tag" \
+              -f sha="$sha" >/dev/null
+          fi
+
+          releases="$(gh api --paginate "$api/releases?per_page=100" --jq ".[] | select(.tag_name == \"$tag\") | @base64")"
+          release_count="$(grep -c . <<<"$releases" || true)"
+          [[ "$release_count" -le 1 ]] || {
+            echo "Multiple releases exist for $tag." >&2
+            exit 1
+          }
+
+          if [[ "$release_count" -eq 0 ]]; then
+            release_json="$(gh api --method POST "$api/releases" \
+              -f tag_name="$tag" \
+              -f target_commitish="$sha" \
+              -f name="$tag" \
+              -f body="Immutable frontend CI package for $sha." \
+              -F draft=true \
+              -F prerelease=false)"
+          else
+            release_json="$(base64 --decode <<<"$releases")"
+            [[ "$(jq -r '.tag_name' <<<"$release_json")" == "$tag" ]]
+            [[ "$(jq -r '.target_commitish' <<<"$release_json")" == "$sha" ]]
+            [[ "$(jq -r '.draft' <<<"$release_json")" == "true" ]] || {
+              echo "Release $tag is not a private draft." >&2
+              exit 1
+            }
+          fi
+
+          release_id="$(jq -r '.id' <<<"$release_json")"
+          assets="$(gh api --paginate "$api/releases/$release_id/assets?per_page=100" --jq ".[] | select(.name == \"$asset\") | @base64")"
+          asset_count="$(grep -c . <<<"$assets" || true)"
+          [[ "$asset_count" -le 1 ]] || {
+            echo "Multiple assets named $asset exist." >&2
+            exit 1
+          }
+
+          if [[ "$asset_count" -eq 0 ]]; then
+            gh release upload "$tag" "$asset" --repo "$GITHUB_REPOSITORY"
+          fi
+
+          rm -rf "$RUNNER_TEMP/release-verify"
+          mkdir -p "$RUNNER_TEMP/release-verify"
+          bash deploy/download_release_asset.sh "$sha" "$RUNNER_TEMP/release-verify" "$RUNNER_TEMP/release-verify"
+          cmp "$asset" "$RUNNER_TEMP/release-verify/$asset"
+
+          extracted="$RUNNER_TEMP/release-verify/release"
+          [[ "$(cat "$extracted/SOURCE_COMMIT")" == "$sha" ]]
+          (cd "$extracted" && sha256sum -c SHA256SUMS)
+          inner="$RUNNER_TEMP/release-verify/inner"
+          mkdir -p "$inner"
+          python3 deploy/release.py validate-archive --archive "$extracted/frontend.tgz"
+          rm -rf "$inner"
+          python3 deploy/release.py safe-extract --archive "$extracted/frontend.tgz" --destination "$inner"
+          [[ "$(cat "$inner/SOURCE_COMMIT")" == "$sha" ]]
+          [[ -f "$inner/index.html" ]]
+
+          {
+            echo "### Immutable frontend release transport"
+            echo "- Commit: \`$sha\`"
+            echo "- Tag: \`$tag\`"
+            echo "- Draft release asset: \`$asset\`"
+          } >> "$GITHUB_STEP_SUMMARY"
