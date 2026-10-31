@@ -32,6 +32,12 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     environment: release-staging
+    # GitHub's draft-release API exposes private drafts only to a token with
+    # push-level repository access. This is scoped to staging; the downloader
+    # performs read-only API calls and never publishes or mutates a release.
+    permissions:
+      contents: write
+      actions: read
     env:
       SOURCE_COMMIT: ${{ inputs.source_commit }}
       CI_RUN_ID: ${{ inputs.ci_run_id }}

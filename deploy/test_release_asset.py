@@ -94,6 +94,7 @@ class ReleaseAssetTests(unittest.TestCase):
                 printf '{"object":{"type":"commit","sha":"%s"}}' "$MOCK_SHA"
                 ;;
               *releases?per_page=100*)
+                [ "${MOCK_NO_DRAFT:-0}" = 1 ] && { printf '[]'; exit 0; }
                 target="$MOCK_SHA"
                 [ "${MOCK_BAD_RELEASE:-0}" = 1 ] && target=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
                 printf '[{"id":123,"tag_name":"frontend-ci-%s","target_commitish":"%s","draft":true}]' "$MOCK_SHA" "$target"
@@ -138,13 +139,27 @@ class ReleaseAssetTests(unittest.TestCase):
         self.assertEqual((destination / "release" / "SOURCE_COMMIT").read_text().strip(), self.sha)
 
         bad_env = dict(env, MOCK_BAD_RELEASE="1")
-        with self.assertRaises(subprocess.CalledProcessError):
-            subprocess.run(
+        bad = subprocess.run(
                 ["bash", "deploy/download_release_asset.sh", self.sha, str(self.root / "bad"), str(self.root / "bad-out")],
                 cwd=repository,
                 env=bad_env,
-                check=True,
+                capture_output=True,
+                text=True,
             )
+        self.assertNotEqual(bad.returncode, 0)
+        self.assertIn("check failed", bad.stderr)
+        self.assertNotIn("test-token", bad.stderr)
+
+        hidden = subprocess.run(
+            ["bash", "deploy/download_release_asset.sh", self.sha, str(self.root / "hidden"), str(self.root / "hidden-out")],
+            cwd=repository,
+            env=dict(env, MOCK_NO_DRAFT="1"),
+            capture_output=True,
+            text=True,
+        )
+        self.assertNotEqual(hidden.returncode, 0)
+        self.assertIn("draft release", hidden.stderr)
+        self.assertNotIn("test-token", hidden.stderr)
 
 
 if __name__ == "__main__":
