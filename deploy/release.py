@@ -82,6 +82,10 @@ def validate_release_layout(destination, component, sha):
     if component == 'frontend':
         if not (destination / 'index.html').is_file():
             raise ValueError('Staged frontend entrypoint is missing')
+        for current, directories, files in os.walk(destination, followlinks=False):
+            for name in directories + files:
+                if (Path(current) / name).stat().st_mode & 0o222:
+                    raise ValueError('Staged frontend release must be read-only')
         return
 
     app = destination / 'gamma_backend'
@@ -90,7 +94,34 @@ def validate_release_layout(destination, component, sha):
         raise ValueError('Staged backend artifact is incomplete')
 
 
-def validate_staged_release(destination, component, sha, digest):
+def content_digest(destination):
+    """Hash extracted content independently of tar metadata and release.json."""
+    digest = hashlib.sha256()
+    for path in sorted(destination.rglob('*'), key=lambda item: item.relative_to(destination).as_posix()):
+        relative = path.relative_to(destination).as_posix()
+        if relative == 'release.json':
+            continue
+        if path.is_symlink() or not (path.is_file() or path.is_dir()):
+            raise ValueError('Staged release contains an invalid entry')
+        digest.update(('directory' if path.is_dir() else 'file').encode())
+        digest.update(b'\0')
+        digest.update(relative.encode())
+        digest.update(b'\0')
+        if path.is_file():
+            with path.open('rb') as handle:
+                for chunk in iter(lambda: handle.read(1024 * 1024), b''):
+                    digest.update(chunk)
+    return digest.hexdigest()
+
+
+def freeze_frontend(destination):
+    """Prevent accidental mutation of a commit-addressed frontend release."""
+    for path in destination.rglob('*'):
+        path.chmod(0o555 if path.is_dir() else 0o444)
+    destination.chmod(0o555)
+
+
+def validate_staged_release(destination, component, sha, digest, expected_content_digest=None):
     """Validate an existing release before treating staging as idempotent."""
     metadata_path = destination / 'release.json'
     try:
@@ -103,8 +134,16 @@ def validate_staged_release(destination, component, sha, digest):
         'component': component,
         'artifact_sha256': digest,
     }
+    if component == 'frontend':
+        expected['content_sha256'] = metadata.get('content_sha256')
     if metadata != expected:
         raise ValueError('Existing release metadata mismatch')
+    if component == 'frontend':
+        actual_content_digest = content_digest(destination)
+        if metadata['content_sha256'] != actual_content_digest:
+            raise ValueError('Existing release content checksum mismatch')
+        if expected_content_digest is not None and actual_content_digest != expected_content_digest:
+            raise ValueError('Existing release differs from the verified artifact')
     validate_release_layout(destination, component, sha)
 
 
@@ -116,10 +155,6 @@ def stage(root, component, sha, archive, digest):
         raise ValueError('Artifact checksum mismatch')
     destination = root / component / sha
     destination.parent.mkdir(parents=True, exist_ok=True)
-    if destination.exists() or destination.is_symlink():
-        validate_staged_release(destination, component, sha, digest)
-        print(f'ALREADY STAGED {component} {sha} at {destination}; production untouched')
-        return
     with tempfile.TemporaryDirectory(prefix='.staging-', dir=destination.parent) as temporary:
         work = Path(temporary)
         extract(archive, work)
@@ -131,14 +166,28 @@ def stage(root, component, sha, archive, digest):
                 raise ValueError('Frontend source marker or entrypoint missing')
         elif not (app / 'manage.py').is_file() or not (work / 'wheelhouse').is_dir() or not any((work / 'wheelhouse').iterdir()) or (work / 'SOURCE_COMMIT').read_text().strip() != sha:
             raise ValueError('Backend source or CI wheelhouse missing')
-        (work / 'release.json').write_text(json.dumps({'source_commit': sha, 'component': component, 'artifact_sha256': digest}))
-        validate_staged_release(work, component, sha, digest)
+        extracted_digest = content_digest(work)
+        if destination.exists() or destination.is_symlink():
+            validate_staged_release(destination, component, sha, digest, extracted_digest)
+            print(f'ALREADY STAGED {component} {sha} at {destination}; production untouched')
+            return
+        metadata = {
+            'source_commit': sha,
+            'component': component,
+            'artifact_sha256': digest,
+        }
+        if component == 'frontend':
+            metadata['content_sha256'] = extracted_digest
+        (work / 'release.json').write_text(json.dumps(metadata, sort_keys=True))
+        if component == 'frontend':
+            freeze_frontend(work)
+        validate_staged_release(work, component, sha, digest, extracted_digest)
         try:
             os.rename(work, destination)
         except FileExistsError:
             # Another stage operation won the immutable destination race.  It
             # is safe to accept only if the winner is the same verified artifact.
-            validate_staged_release(destination, component, sha, digest)
+            validate_staged_release(destination, component, sha, digest, extracted_digest)
             print(f'ALREADY STAGED {component} {sha} at {destination}; production untouched')
             return
     print(f'STAGED {component} {sha} at {destination}; production untouched')
@@ -234,8 +283,7 @@ def activate(root, component, sha):
     valid_sha(sha)
     release = root / component / sha
     metadata = json.loads((release / 'release.json').read_text())
-    if metadata['source_commit'] != sha or metadata['component'] != component:
-        raise ValueError('Staged release identity mismatch')
+    validate_staged_release(release, component, sha, metadata.get('artifact_sha256', ''))
     target = TARGETS[component]
     if not target.is_symlink():
         raise ValueError('Live path must already be an approved symlink layout')

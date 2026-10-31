@@ -31,7 +31,10 @@ class ReleaseTests(unittest.TestCase):
         digest = hashlib.sha256(archive.read_bytes()).hexdigest()
         release.stage(self.root, 'frontend', self.sha, archive, digest)
         destination = self.root / 'frontend' / self.sha
-        self.assertEqual(json.loads((destination / 'release.json').read_text())['source_commit'], self.sha)
+        metadata = json.loads((destination / 'release.json').read_text())
+        self.assertEqual(metadata['source_commit'], self.sha)
+        self.assertRegex(metadata['content_sha256'], r'^[0-9a-f]{64}$')
+        self.assertEqual((destination / 'index.html').stat().st_mode & 0o222, 0)
         release.stage(self.root, 'frontend', self.sha, archive, digest)
 
     def test_restage_rejects_mismatched_or_incomplete_existing_release(self):
@@ -41,6 +44,8 @@ class ReleaseTests(unittest.TestCase):
         destination = self.root / 'frontend' / self.sha
 
         metadata = json.loads((destination / 'release.json').read_text())
+        destination.chmod(0o755)
+        (destination / 'release.json').chmod(0o644)
         metadata['artifact_sha256'] = '0' * 64
         (destination / 'release.json').write_text(json.dumps(metadata))
         sentinel = destination / 'do-not-overwrite.txt'
@@ -48,14 +53,28 @@ class ReleaseTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'metadata mismatch'):
             release.stage(self.root, 'frontend', self.sha, archive, digest)
         self.assertEqual(sentinel.read_text(), 'preserve')
+        sentinel.chmod(0o444)
 
         (destination / 'release.json').write_text(json.dumps({
             'source_commit': self.sha,
             'component': 'frontend',
             'artifact_sha256': digest,
+            'content_sha256': metadata['content_sha256'],
         }))
+        (destination / 'release.json').chmod(0o444)
         (destination / 'index.html').unlink()
         with self.assertRaisesRegex(ValueError, 'entrypoint is missing'):
+            release.stage(self.root, 'frontend', self.sha, archive, digest)
+
+    def test_restage_detects_changed_content_even_if_metadata_is_unchanged(self):
+        archive = self.archive({'index.html': '<html/>', 'SOURCE_COMMIT': self.sha})
+        digest = hashlib.sha256(archive.read_bytes()).hexdigest()
+        release.stage(self.root, 'frontend', self.sha, archive, digest)
+        destination = self.root / 'frontend' / self.sha
+        index = destination / 'index.html'
+        index.chmod(0o644)
+        index.write_text('<html>changed</html>')
+        with self.assertRaisesRegex(ValueError, 'content checksum mismatch'):
             release.stage(self.root, 'frontend', self.sha, archive, digest)
 
     def test_archive_escape_and_bad_digest_are_rejected(self):

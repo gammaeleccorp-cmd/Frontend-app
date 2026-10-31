@@ -17,10 +17,16 @@ const assert = require("node:assert/strict");
     const page = await context.newPage();
     const unexpected = [];
     const pageErrors = [];
+    const geofenceWrites = [];
+    let geofence = { configured: false, is_active: false, position: "UNKNOWN" };
     page.on("pageerror", e => pageErrors.push(e.message));
+    await page.route("https://*.tile.openstreetmap.org/**", route => route.abort());
+    await page.route("https://tile.openstreetmap.org/**", route => route.abort());
 
     await page.route("https://api.gamma-tech.ir/**", async route => {
-      const path = new URL(route.request().url()).pathname;
+      const request = route.request();
+      const path = new URL(request.url()).pathname;
+      const method = request.method();
       let status = 200;
       let data;
 
@@ -36,7 +42,17 @@ const assert = require("node:assert/strict");
       else if (path === "/api/v1/telemetry/devices/NG-0001/latest/") data = null;
       else if (path === "/api/v1/telemetry/devices/NG-0001/history/") data = [];
       else if (path === "/api/v1/devices/NG-0001/geofence/") {
-        data = { configured: false, is_active: false, position: "UNKNOWN" };
+        if (method === "GET") data = geofence;
+        else if (method === "PUT") {
+          const body = request.postDataJSON();
+          geofenceWrites.push({ method, body });
+          geofence = { ...body, configured: true, is_active: true, position: "INSIDE", last_recorded_at: "2026-10-31T08:00:00Z" };
+          data = geofence;
+        } else if (method === "DELETE") {
+          geofenceWrites.push({ method });
+          geofence = { ...geofence, is_active: false, position: "UNKNOWN" };
+          data = null;
+        }
       }
       else {
         unexpected.push(`${route.request().method()} ${path}`);
@@ -55,8 +71,41 @@ const assert = require("node:assert/strict");
     await page.getByText("وضعیت ردیاب", { exact: true }).waitFor();
     await page.getByText("دستگاه NG-0001", { exact: true }).waitFor();
     await page.locator(".geofence-card").waitFor();
-    await page.getByRole("button", { name: "تنظیم محدوده" }).waitFor();
+    await page.locator(".geofence-card button").click();
+    await page.waitForURL("**/routes");
 
+    const fields = page.locator('form input[type="number"]');
+    await fields.nth(0).fill("35.7001");
+    await fields.nth(1).fill("51.4002");
+    await fields.nth(2).fill("500");
+    await page.locator('form button[type="submit"]').click();
+    await page.waitForFunction(() => document.querySelector('form button[type="button"]')?.disabled === false);
+    assert.deepEqual(geofenceWrites[0], {
+      method: "PUT",
+      body: { latitude: 35.7001, longitude: 51.4002, radius_m: 500 },
+    });
+
+    // Editing sends the full replacement configuration.
+    await fields.nth(0).fill("35.7101");
+    await fields.nth(1).fill("51.4102");
+    await fields.nth(2).fill("750");
+    await page.locator('form button[type="submit"]').click();
+    await page.waitForFunction(() => document.querySelector('form button[type="submit"]')?.disabled === false);
+    assert.deepEqual(geofenceWrites[1], {
+      method: "PUT",
+      body: { latitude: 35.7101, longitude: 51.4102, radius_m: 750 },
+    });
+
+    // A newer transition on the unchanged active fence raises an in-app event.
+    geofence = { ...geofence, position: "OUTSIDE", last_recorded_at: "2026-10-31T08:01:00Z" };
+    await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
+    const transitionToast = page.locator(".toast:not(.welcome-toast)");
+    await transitionToast.waitFor();
+    assert.match(await transitionToast.textContent(), /NG-0001/);
+
+    await page.locator('form button[type="button"]').click();
+    await page.waitForFunction(() => document.querySelector('form button[type="button"]')?.disabled === true);
+    assert.deepEqual(geofenceWrites[2], { method: "DELETE" });
     assert.deepEqual(unexpected, [], "Unexpected API requests");
     assert.deepEqual(pageErrors, [], "Browser errors");
 
