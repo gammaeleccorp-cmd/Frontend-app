@@ -15,6 +15,25 @@ async function run(file) {
     await new Promise(resolve => setTimeout(resolve, 500));
   }
   if (!ready) throw new Error('Preview did not become ready');
-  await run('tests/mobile-flow.cjs');
-  await run('tests/device-dashboard.e2e.cjs');
+  const suites = [
+    'tests/mobile-flow.cjs',
+    'tests/current-dashboard.e2e.cjs',
+    'tests/device-dashboard.e2e.cjs',
+  ];
+  const failures = [];
+
+  for (const suite of suites) {
+    console.log(`\\n=== E2E: ${suite} ===`);
+    try {
+      await run(suite);
+      console.log(`PASS: ${suite}`);
+    } catch (error) {
+      console.error(`FAIL: ${suite}`, error);
+      failures.push(suite);
+    }
+  }
+
+  if (failures.length) {
+    throw new Error(`E2E failures: ${failures.join(', ')}`);
+  }
 })().catch(error => { console.error(error); process.exitCode = 1; }).finally(() => server.kill());
