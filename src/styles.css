@@ -486,7 +486,7 @@ button:active:not(:disabled) { transform: translateY(1px); }
 .security-row p { margin-top: 4px; }
 .inline-success { display: flex; align-items: center; gap: 7px; color: var(--green); margin-top: 14px; padding: 10px 12px; background: rgba(61, 220, 132, 0.06); border-radius: 12px; }
 .toast { position: fixed; z-index: 1100; bottom: 96px; left: 50%; transform: translateX(-50%); background: var(--surface-2); border: 1px solid var(--line-2); color: var(--text); padding: 11px 15px; border-radius: 12px; box-shadow: var(--shadow-lg); }
-.welcome-toast { top: calc(env(safe-area-inset-top, 0px) + 20px); bottom: auto; width: max-content; max-width: calc(100vw - 32px); text-align: center; line-height: 1.8; overflow-wrap: anywhere; pointer-events: none; animation: welcome-fade 4s ease both; }
+.welcome-toast { position: relative; grid-column: 1 / -1; justify-self: center; top: auto; bottom: auto; left: auto; transform: none; width: fit-content; min-width: 0; max-width: 100%; text-align: center; line-height: 1.8; overflow-wrap: anywhere; pointer-events: none; animation: welcome-fade 4s ease both; }
 @keyframes welcome-fade { 0%, 100% { opacity: 0; } 8%, 82% { opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .welcome-toast { animation: none; } }
 .sync-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin: -4px 0 10px; }
@@ -746,3 +746,47 @@ button:active:not(:disabled) { transform: translateY(1px); }
 .metrics.negahban-metrics.status-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .status-metrics > .metric-card { min-width: 0; overflow-wrap: anywhere; }
 .status-metrics .geofence-card small { white-space: normal; }
+
+/* Flag 15: keep the header above all Leaflet panes. */
+.app-header { position: relative; z-index: 2000; overflow: visible; }
+/* The brand occupies its own full-width row above the reachable controls. */
+.gamma-brand { grid-column: 1 / -1; width: 100%; display: grid; justify-items: center; gap: 3px; text-align: center; direction: ltr; margin: 0; }
+.gamma-brand-logo { display: grid; place-items: center; width: 48px; height: 48px; color: var(--orange); background: radial-gradient(circle, rgba(255,107,26,.19), transparent 72%); }
+.gamma-brand-logo svg { width: 40px; height: 40px; filter: drop-shadow(0 0 10px rgba(255,107,26,.18)); }
+.gamma-brand-wordmark { color: #fff; font-size: clamp(24px, 6vw, 30px); font-weight: 900; letter-spacing: .16em; line-height: 1.1; padding-inline-start: .16em; }
+.gamma-brand-subtitle { color: #ff914d; font-size: 10px; font-weight: 700; letter-spacing: .18em; line-height: 1.5; padding-inline-start: .18em; }
+.negahban-device-page .page-heading-wrap { align-items: center; min-width: 0; }
+.negahban-device-page .page-heading-wrap > div { min-width: 0; }
+.negahban-device-page .page-header h2 { margin: 0; overflow-wrap: anywhere; }
+.negahban-device-page .icon-btn, .app-header .icon-btn { flex-shrink: 0; }
+.tracker-overview { align-items: flex-start; gap: 14px; }
+.tracker-overview .device-product-mark { width: 48px; height: 48px; border: 1px solid rgba(255,107,26,.2); background: rgba(255,107,26,.07); border-radius: 14px; }
+.device-code-badge { display: inline-block; max-width: 100%; padding: 6px 10px; border: 1px solid var(--line-2); background: var(--surface-3); border-radius: 8px; font-weight: 800; font-size: 18px; overflow-wrap: anywhere; unicode-bidi: isolate; }
+.device-freshness { margin-top: 10px; }
+.tracker-overview .status-badge { max-width: 100%; white-space: normal; line-height: 1.7; text-align: start; }
+.device-received { margin: 10px 0 0; font-size: 12px; line-height: 1.9; color: #b9bbc1; overflow-wrap: anywhere; }
+.app-header-main > div:first-child { min-width: 0; overflow-wrap: anywhere; }
+.notification-panel { z-index: 2100; width: min(340px, calc(100vw - 32px)); max-height: min(65dvh, 520px); display: flex; flex-direction: column; overflow: hidden; inset-inline-end: 0; inset-inline-start: auto; }
+.notification-heading { flex: 0 0 auto; }
+.notification-list { overflow-y: auto; overscroll-behavior: contain; min-height: 0; }
+.notification-item { overflow-wrap: anywhere; }
+.fence-disclosure { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .2s ease; }
+.fence-disclosure.is-open { grid-template-rows: 1fr; }
+.fence-disclosure > div { overflow: hidden; min-height: 0; }
+.fence-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+button, a.primary-btn, a.secondary-btn { min-height: 44px; }
+:focus-visible { outline: 3px solid var(--accent, #ff6b1a); outline-offset: 3px; }
+button:disabled { opacity: .55; cursor: not-allowed; }
+@media (prefers-reduced-motion: reduce) { .fence-disclosure { transition: none; } }
+.platform-title { grid-column: 1 / -1; }
+.app-header-main { grid-column: 1; }
+@media (max-width: 600px) { .app-header-main { grid-column: 1 / -1; } }
+.platform-title { grid-column: 1 / -1; }
+
+.route-history > summary { display: flex; align-items: center; gap: 12px; cursor: pointer; list-style: none; min-height: 44px; border-radius: 8px; }
+.route-history > summary::-webkit-details-marker { display: none; }
+.route-history > summary h3 { margin: 0; flex: 1; }
+.route-history-chevron { flex-shrink: 0; transition: transform .2s ease; }
+.route-history[open] > summary .route-history-chevron { transform: rotate(180deg); }
+.route-history[open] > .route-list { margin-top: 16px; }
+@media (prefers-reduced-motion: reduce) { .route-history-chevron { transition: none; } }

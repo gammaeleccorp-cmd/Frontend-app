@@ -1,3 +1,5 @@
+import { newestSample } from "./utils/flag15.mjs";
+import { getLatestDeviceTelemetry } from "./api/gammaApi";
 import useGeofence from "./hooks/useGeofence";
 import { Component, lazy, Suspense, useEffect, useState } from "react";
 import { BrowserRouter, Navigate, Outlet, Route, Routes, useLocation, useNavigate, useOutletContext, useParams } from "react-router-dom";
@@ -5,7 +7,7 @@ import AppHeader from "./components/AccessAppHeader";
 import BottomNav from "./components/BottomNav";
 import StateMessage from "./components/StateMessage";
 import LoginPage from "./pages/UnifiedLoginPage";
-import DeviceOnboardingPage from "./pages/DeviceOnboardingPage";
+
 import WelcomeStartPage from "./pages/WelcomeStartPage";
 import RegisterPage from "./pages/RegisterPage";
 import OtpPage from "./pages/OtpPage";
@@ -138,13 +140,12 @@ function OtpRoute() {
 
 function ProtectedLayout() {
   const [data, setData] = useState(null); const [loading, setLoading] = useState(true); const [error, setError] = useState("");
-  const load = async (silent = false) => { if (!repo.hasSession()) { setLoading(false); return; } if (!silent) { setLoading(true); setError(""); } try { setData(await repo.getBootstrapData()); } catch (err) { if (!silent) setError(err?.message || "دریافت اطلاعات ناموفق بود."); } finally { if (!silent) setLoading(false); } };
+  const load = async (silent = false) => { if (!repo.hasSession()) { setLoading(false); return; } if (!silent) { setLoading(true); setError(""); } try { const incoming=await repo.getBootstrapData(); setData(current => current?.vehicle?.deviceCode === incoming.vehicle?.deviceCode ? {...incoming,latestTelemetry:newestSample(current?.latestTelemetry,incoming.latestTelemetry)} : incoming); } catch (err) { if (!silent) setError(err?.message || "دریافت اطلاعات ناموفق بود."); } finally { if (!silent) setLoading(false); } };
   useEffect(() => {
     load();
-    const timer = window.setInterval(() => { if (document.visibilityState === "visible") load(true); }, 60_000);
     const onVisible = () => { if (document.visibilityState === "visible") load(true); };
     document.addEventListener("visibilitychange", onVisible);
-    return () => { window.clearInterval(timer); document.removeEventListener("visibilitychange", onVisible); };
+    return () => { document.removeEventListener("visibilitychange", onVisible); };
   }, []);
   if (!repo.hasSession()) return <Navigate to="/login" replace />;
   if (loading) return <StateMessage loading message="در حال دریافت اطلاعات..." />;
@@ -163,6 +164,20 @@ function legacyAppFrame({ data, setData }) {
 function AppFrame({ data, setData }) {
   const navigate = useNavigate();
   const location = useLocation();
+  useEffect(() => {
+    const code=data.vehicle?.deviceCode;
+    if (!code) return;
+    let disposed=false;
+    let running=false;
+    const poll=async()=>{ if(running || document.visibilityState!=="visible") return; running=true;
+      try { const sample=await getLatestDeviceTelemetry(code); if(!disposed) setData(current=> {
+        if(current.vehicle?.deviceCode!==code) return current;
+        return {...current,latestTelemetry:newestSample(current.latestTelemetry,sample)};
+      }); } catch { /* Keep the last sample; freshness expires from recorded_at. */ } finally {running=false;}
+    };
+    poll(); const timer=setInterval(poll,10000);
+    return ()=>{disposed=true;clearInterval(timer);};
+  },[data.vehicle?.deviceCode,setData]);
   const firstName = data.user?.firstName?.trim();
   const allowedProducts = data.allowedProducts?.length ? data.allowedProducts : getUserProducts(data.user);
   const storedProduct = normalizeProductType(localStorage.getItem("gamma_product"));
@@ -175,13 +190,14 @@ function AppFrame({ data, setData }) {
     return () => window.clearTimeout(timer);
   }, []);
   useEffect(() => { if (allowedProducts.length && !allowedProducts.includes(product)) setProduct(allowedProducts[0]); }, [allowedProducts, product]);
-  useEffect(() => { const timer = window.setInterval(() => setNow(Date.now()), 30_000); return () => window.clearInterval(timer); }, []);
+  useEffect(() => { const timer = window.setInterval(() => setNow(Date.now()), 1000); return () => window.clearInterval(timer); }, []);
   const showToast = (message) => { setToast(message); window.setTimeout(() => setToast(""), 2400); };
   const geofence = useGeofence(product === PRODUCTS.NEGAHBAN ? data.vehicle?.deviceCode : null, showToast);
   const changeProduct = (next) => { const normalized = normalizeProductType(next); if (!allowedProducts.includes(normalized)) return; localStorage.setItem("gamma_product", normalized); setProduct(normalized); navigate("/home"); };
   const logout = () => { repo.logout(); navigate("/login", { replace: true }); };
   return <main className="app-shell">
     <AppHeader
+      welcome={showWelcome && <div className="toast welcome-toast" role="status" dir="rtl">کاربر عزیز{firstName && <>، <bdi>{firstName}</bdi></>}، خوش آمدید!</div>}
       product={product}
       vehicle={data.vehicle}
       availableProducts={allowedProducts}
@@ -197,15 +213,14 @@ function AppFrame({ data, setData }) {
       <Outlet context={{ data, setData, product, now, geofence, allowedProducts, setProduct: changeProduct, showToast, logout }} />
     </PageTransition>
     <BottomNav product={product} path={location.pathname} onNavigate={navigate} />
-    {showWelcome && <div className="toast welcome-toast" role="status" dir="rtl">کاربر عزیز{firstName && <>، <bdi>{firstName}</bdi></>}، خوش آمدید!</div>}
     {toast && <div className="toast" role="status">{toast}</div>}
   </main>;
 }
 
 function useApp() { return useOutletContext(); }
 function useBack(fallback = "/home") { const navigate = useNavigate(); return () => { if (window.history.state?.idx > 0) navigate(-1); else navigate(fallback); }; }
-function HomeRoute() { const { data, product, now, geofence } = useApp(); const navigate = useNavigate(); if (!data.devices?.length) return <WelcomeStartPage onStart={() => navigate("/add-device")} />; return <><div className="home-actions"><button className="secondary-btn" type="button" onClick={() => navigate("/add-device")}>افزودن دستگاه</button></div><HomePage product={product} data={data} geofence={geofence} now={now} onNavigate={(path) => navigate(path.startsWith("/") ? path : `/${path}`)} onDtcOpen={(dtc) => navigate(`/diagnostics/${dtc.code}`, { state: { dtc } })} /></>; }
-function AddDeviceRoute() { const { setData } = useApp(); const navigate = useNavigate(); const [busy, setBusy] = useState(false); const [error, setError] = useState(""); const submit = async (payload) => { setBusy(true); setError(""); try { await repo.bindDevice(payload); setData(await repo.getBootstrapData()); navigate("/home"); } catch (err) { setError(err?.message || "اتصال دستگاه ناموفق بود."); } finally { setBusy(false); } }; return <DeviceOnboardingPage loading={busy} error={error} onSubmit={submit} onBack={() => navigate("/home")} />; }
+function HomeRoute() { const { data, product, now, geofence } = useApp(); const navigate = useNavigate(); if (!data.devices?.length) return <WelcomeStartPage />; return <HomePage product={product} data={data} geofence={geofence} now={now} onNavigate={(path) => navigate(path.startsWith("/") ? path : `/${path}`)} onDtcOpen={(dtc) => navigate(`/diagnostics/${dtc.code}`, { state: { dtc } })} />; }
+function AddDeviceRoute() { return <Navigate to="/home" replace />; }
 function VehicleRoute() {
   const { data, product, now, setData, showToast } = useApp(); const navigate = useNavigate();
   const update = async (changes) => { if (!data.vehicle?.id) return; const raw = await repo.updateVehicle(data.vehicle.id, changes); setData((current) => ({ ...current, vehicle: { ...current.vehicle, ...raw, id: current.vehicle.id, model: raw.model || "—", year: String(raw.production_year || "—"), production_year: raw.production_year, plate: raw.license_plate || "—", color: raw.color || "—" } })); showToast("اطلاعات خودرو ذخیره شد."); };

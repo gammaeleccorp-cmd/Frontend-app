@@ -52,7 +52,7 @@ export default function useGeofence(deviceCode, onTransition) {
     setState((s) => ({ ...s, loading: true, error: "" }));
     try {
       const value = values === null
-        ? (await disableGeofence(deviceCode), { configured: true, is_active: false, position: "UNKNOWN" })
+        ? (await disableGeofence(deviceCode), { ...state.value, configured: true, is_active: false, position: "UNKNOWN" })
         : await saveGeofence(deviceCode, values);
       if (id !== sequence.current) return false;
       previous.current = value;

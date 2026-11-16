@@ -1,4 +1,5 @@
-import { Car, Cpu, MapPinned, Radio, Satellite } from "lucide-react";
+import { recordedPosition } from "../utils/flag15.mjs";
+import { Car, Cpu, MapPinned, Radio, Satellite, LocateFixed } from "lucide-react";
 import { useState } from "react";
 import PageHeader from "../components/PageHeader";
 import StatusBadge from "../components/StatusBadge";
@@ -12,25 +13,33 @@ export default function VehiclePage({ product, data, now, onBack, onUpdate, onRo
   const vehicle = data.vehicle || {};
   const negahban = product === PRODUCTS.NEGAHBAN;
   const online = isTelemetryFresh(data.latestTelemetry, now);
-  const lastLocation = data.lastLocation;
+  const receivedAt = data.latestTelemetry?.received_at;
+  const lastLocation = recordedPosition(data)?.coordinates;
 
-  return <section className="page-section">
-    <PageHeader eyebrow="DEVICE" title={negahban ? "دستگاه نگهبان" : "خودرو و دستگاه"} subtitle="اطلاعات ثبت‌شده و وضعیت ارتباط" onBack={onBack} />
+  return <section className={`page-section${negahban ? " negahban-device-page" : ""}`} dir="rtl">
+    <PageHeader eyebrow={negahban ? undefined : "DEVICE"} title={negahban ? "دستگاه نگهبان" : "خودرو و دستگاه"} subtitle={negahban ? undefined : "اطلاعات ثبت‌شده و وضعیت ارتباط"} onBack={onBack} />
 
-    <section className="panel device-overview">
+    {negahban ? <section className="panel device-overview tracker-overview" aria-label="وضعیت دستگاه">
+      <div className="device-product-mark" aria-hidden="true"><LocateFixed size={28} /></div>
+      <div className="device-overview-main">
+        {vehicle.deviceCode ? <span className="device-code-badge mono" dir="ltr" aria-label="کد عمومی دستگاه">{vehicle.deviceCode}</span> : <p className="compact">کد دستگاه ثبت نشده</p>}
+        <div className="device-freshness"><StatusBadge tone={online ? "success" : "warning"}>{online ? "داده تازه" : "داده تازه دریافت نشده"}</StatusBadge></div>
+        {receivedAt && formatTelemetryTime(receivedAt) !== "—" && <p className="device-received">آخرین دریافت: <time dateTime={receivedAt}>{formatTelemetryTime(receivedAt)}</time></p>}
+      </div>
+    </section> : <section className="panel device-overview">
       <div className="device-product-mark"><Radio size={36} /></div>
-      <div className="device-overview-main"><span className="eyebrow">{negahban ? "NEGAHBAN TRACKER" : "GAMMA DEVICE"}</span>
+      <div className="device-overview-main"><span className="eyebrow">GAMMA DEVICE</span>
         <h3 className="mono">{vehicle.deviceCode || "کد دستگاه ثبت نشده"}</h3>
         <p className="muted compact">{vehicle.deviceStatus ? `وضعیت ثبتی: ${vehicle.deviceStatus}` : "وضعیت ثبتی نامشخص"}</p>
       </div>
       <StatusBadge tone={online ? "success" : "warning"}>{online ? "داده تازه" : "داده تازه ندارد"}</StatusBadge>
-    </section>
+    </section>}
 
     <section className="info-grid">
       <InfoCard icon={<Cpu />} label="کد عمومی دستگاه" value={vehicle.deviceCode || "—"} mono />
       <InfoCard icon={<Radio />} label="آخرین دریافت" value={formatTelemetryTime(data.latestTelemetry?.received_at || data.latestTelemetry?.recorded_at)} />
       <InfoCard icon={<Satellite />} label="وضعیت GNSS" value={isTelemetryFresh({ recorded_at: data.latestTelemetry?.recorded_at }, now) && coordinates(data.latestTelemetry) ? "موقعیت تازه دریافت شد" : lastLocation ? "وضعیت فعلی نامشخص" : "موقعیتی ثبت نشده"} />
-      <InfoCard icon={<MapPinned />} label="زمان ثبت موقعیت" value={formatTelemetryTime(data.latestTelemetry?.recorded_at)} />
+      <InfoCard icon={<MapPinned />} label="زمان ثبت موقعیت" value={formatTelemetryTime(recordedPosition(data)?.recordedAt)} />
     </section>
 
     {negahban && <section className="panel">

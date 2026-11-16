@@ -1,3 +1,4 @@
+import { recordedPosition, liveSpeed } from "../utils/flag15.mjs";
 import GeofenceCard from "../components/GeofenceCard";
 import {
   AlertTriangle,
@@ -137,10 +138,9 @@ function NegahbanHome({ data, now, onNavigate }) {
   const online = isTelemetryFresh(data.latestTelemetry, now);
   const latestTime = formatTelemetryTime(data.latestTelemetry?.received_at || data.latestTelemetry?.recorded_at);
   const locationFresh = isTelemetryFresh({ recorded_at: data.latestTelemetry?.recorded_at }, now) && !!coordinates(data.latestTelemetry);
-  const location = data.lastLocation;
-  const locationTime = coordinates(data.latestTelemetry)
-    ? data.latestTelemetry?.recorded_at || data.latestTelemetry?.received_at
-    : data.routeHistory?.[0]?.recordedAt;
+  const position = recordedPosition(data);
+  const location = position?.coordinates;
+  const locationTime = position?.recordedAt;
   const device = data.vehicle || {};
   const latestCrash = data.mpuEvents?.[0];
   const accMetric = data.negahbanMetrics.find((item) => item.icon === "power") || { label: "وضعیت ACC", value: "نامشخص", unit: "", icon: "power" };
@@ -165,11 +165,8 @@ function NegahbanHome({ data, now, onNavigate }) {
       </section>}
 
       <section className="metrics negahban-metrics">
-        {data.negahbanMetrics.filter((item) => item.icon !== "power").map((item) => (
-          item.unit === "km/h"
-            ? <Speedometer key={item.label} value={item.value} fresh={online} />
-            : <MetricCard key={item.label} item={item} />
-        ))}
+        <Speedometer value={liveSpeed(data.latestTelemetry, now)} fresh={liveSpeed(data.latestTelemetry, now) !== null} />
+        {data.negahbanMetrics.filter(item => item.icon !== "power" && item.unit !== "km/h").map(item => <MetricCard key={item.label} item={item} />)}
       </section>
       <section className="metrics negahban-metrics status-metrics">
         <MetricCard item={accMetric} />
