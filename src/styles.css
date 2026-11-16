@@ -749,7 +749,22 @@ button:active:not(:disabled) { transform: translateY(1px); }
 
 /* Flag 15: keep the header above all Leaflet panes. */
 .app-header { position: relative; z-index: 2000; overflow: visible; }
-.platform-title { width: 100%; text-align: center; margin: 0 0 16px; font-size: clamp(10px, 3vw, 13px); }
+/* The brand occupies its own full-width row above the reachable controls. */
+.gamma-brand { grid-column: 1 / -1; width: 100%; display: grid; justify-items: center; gap: 3px; text-align: center; direction: ltr; margin: 0; }
+.gamma-brand-logo { display: grid; place-items: center; width: 48px; height: 48px; color: var(--orange); background: radial-gradient(circle, rgba(255,107,26,.19), transparent 72%); }
+.gamma-brand-logo svg { width: 40px; height: 40px; filter: drop-shadow(0 0 10px rgba(255,107,26,.18)); }
+.gamma-brand-wordmark { color: #fff; font-size: clamp(24px, 6vw, 30px); font-weight: 900; letter-spacing: .16em; line-height: 1.1; padding-inline-start: .16em; }
+.gamma-brand-subtitle { color: #ff914d; font-size: 10px; font-weight: 700; letter-spacing: .18em; line-height: 1.5; padding-inline-start: .18em; }
+.negahban-device-page .page-heading-wrap { align-items: center; min-width: 0; }
+.negahban-device-page .page-heading-wrap > div { min-width: 0; }
+.negahban-device-page .page-header h2 { margin: 0; overflow-wrap: anywhere; }
+.negahban-device-page .icon-btn, .app-header .icon-btn { flex-shrink: 0; }
+.tracker-overview { align-items: flex-start; gap: 14px; }
+.tracker-overview .device-product-mark { width: 48px; height: 48px; border: 1px solid rgba(255,107,26,.2); background: rgba(255,107,26,.07); border-radius: 14px; }
+.device-code-badge { display: inline-block; max-width: 100%; padding: 6px 10px; border: 1px solid var(--line-2); background: var(--surface-3); border-radius: 8px; font-weight: 800; font-size: 18px; overflow-wrap: anywhere; unicode-bidi: isolate; }
+.device-freshness { margin-top: 10px; }
+.tracker-overview .status-badge { max-width: 100%; white-space: normal; line-height: 1.7; text-align: start; }
+.device-received { margin: 10px 0 0; font-size: 12px; line-height: 1.9; color: #b9bbc1; overflow-wrap: anywhere; }
 .app-header-main > div:first-child { min-width: 0; overflow-wrap: anywhere; }
 .notification-panel { z-index: 2100; width: min(340px, calc(100vw - 32px)); max-height: min(65dvh, 520px); display: flex; flex-direction: column; overflow: hidden; inset-inline-end: 0; inset-inline-start: auto; }
 .notification-heading { flex: 0 0 auto; }

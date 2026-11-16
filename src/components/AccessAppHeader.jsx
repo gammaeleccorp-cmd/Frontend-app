@@ -1,3 +1,4 @@
+import BrandHeader from "./BrandHeader";
 import { Bell } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { PRODUCTS } from "../data/mockData";
@@ -28,7 +29,7 @@ export default function AccessAppHeader({ product, vehicle, availableProducts = 
 
   return (
     <header className="app-header">
-      <p className="eyebrow platform-title" dir="ltr">GAMMA VEHICLE PLATFORM</p>
+      <BrandHeader />
       <div className="app-header-main">
         <div>
           <div className="header-title-row">

@@ -1,3 +1,4 @@
+import BrandHeader from "./BrandHeader";
 import { Bell } from "lucide-react";
 import { PRODUCTS } from "../data/mockData";
 
@@ -6,9 +7,9 @@ export default function AppHeader({ product, vehicle, onProductChange, onNotify 
 
   return (
     <header className="app-header">
+      <BrandHeader />
       <div className="app-header-main">
         <div>
-          <p className="eyebrow no-margin">GAMMA VEHICLE PLATFORM</p>
           <div className="header-title-row">
             <h1>{luminen ? "لومینن" : "نگهبان"}</h1>
             <span className="device-dot" />

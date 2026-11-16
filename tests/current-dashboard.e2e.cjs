@@ -87,6 +87,43 @@ const assert = require("node:assert/strict");
     await page.getByText("وضعیت ردیاب", { exact: true }).waitFor();
     assert.equal(await page.locator('#device-code').count(),0);
     assert.equal(await page.locator('a[href*="neshan.org"]').count(),0);
+    await page.goto(`${process.env.E2E_BASE || "http://127.0.0.1:5178"}/vehicle`);
+    await page.getByRole('heading', { name: 'دستگاه نگهبان', exact: true }).waitFor();
+    for (const width of [320,390,1280]) {
+      await page.setViewportSize({width,height:844});
+      const title=page.locator('.negahban-device-page .page-header');
+      assert.equal(await title.getByRole('heading').count(),1);
+      assert.equal(await title.locator('.eyebrow').count(),0);
+      assert.equal(await title.locator('.muted').count(),0);
+      assert.equal(await page.locator('.gamma-brand').getAttribute('dir'),'ltr');
+      assert.equal(await page.locator('.device-code-badge').getAttribute('dir'),'ltr');
+      assert.equal(await page.locator('.device-code-badge').innerText(),'NG-0001');
+      assert.equal(await page.locator('.tracker-overview .status-badge').innerText(),'داده تازه دریافت نشده');
+      for (const selector of ['.gamma-brand','.gamma-brand-wordmark','.gamma-brand-subtitle','.device-code-badge','.tracker-overview .status-badge','.negahban-device-page h2']) {
+        assert.equal(await page.locator(selector).evaluate(el=>el.scrollWidth<=el.clientWidth+1),true,`${selector} clips at ${width}`);
+      }
+      const back=title.getByRole('button',{name:'بازگشت'});
+      const backBox=await back.boundingBox(), headingBox=await title.getByRole('heading').boundingBox();
+      assert.ok(backBox.x>=headingBox.x+headingBox.width,'back button is at RTL leading edge');
+      assert.ok(Math.abs(backBox.y+backBox.height/2-headingBox.y-headingBox.height/2)<2);
+      for (const control of [back,page.getByRole('button',{name:/اعلان‌ها/})]) {
+        await control.focus();
+        await page.keyboard.press('Tab');
+        await page.keyboard.press('Shift+Tab');
+        assert.equal(await control.evaluate(el=>el===document.activeElement && el.matches(':focus-visible') && getComputedStyle(el).outlineStyle!=='none' && parseFloat(getComputedStyle(el).outlineWidth)>=2),true);
+      }
+      const brandBox=await page.locator('.gamma-brand').boundingBox(), headerBox=await page.locator('.app-header').boundingBox();
+      assert.ok(Math.abs(brandBox.x+brandBox.width/2-headerBox.x-headerBox.width/2)<2);
+      assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
+      if(process.env.E2E_SHOTS) {
+        require('node:fs').mkdirSync(process.env.E2E_SHOTS,{recursive:true});
+        await page.screenshot({path:require('node:path').join(process.env.E2E_SHOTS,`headers-${width}.png`),fullPage:true});
+      }
+    }
+    await page.setViewportSize({width:390,height:844});
+    await page.goto(`${process.env.E2E_BASE || "http://127.0.0.1:5178"}/home`);
+    await page.getByText("وضعیت ردیاب", { exact: true }).waitFor();
+
     await page.locator(".geofence-card").waitFor();
     await page.locator(".geofence-card button").click();
     await page.waitForURL("**/routes");
