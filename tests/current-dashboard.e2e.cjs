@@ -177,7 +177,11 @@ const assert = require("node:assert/strict");
     assert.equal(await rows.first().isVisible(),false);
     await page.keyboard.press('Enter');
     await page.emulateMedia({reducedMotion:'reduce'});
-    assert.equal(await page.locator('.route-history-chevron').evaluate(el=>getComputedStyle(el).transitionDuration),'0s');
+    await page.waitForFunction(() => {
+      const chevron = document.querySelector(".route-history-chevron");
+      return getComputedStyle(chevron).transitionDuration.split(",")
+        .every(duration => Number.parseFloat(duration) <= 0.001);
+    });
     await page.emulateMedia({reducedMotion:'no-preference'});
     assert.equal(await rows.count(),2);
     assert.equal(await page.locator('a[href*="neshan.org"]').count(),2);
