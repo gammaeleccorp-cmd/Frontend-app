@@ -2,7 +2,7 @@ import { recentRecordedPoints, neshanUrl } from "../utils/flag15.mjs";
 import GeofenceEditor from "../components/GeofenceEditor";
 import { useState } from "react";
 import { MapContainer, TileLayer, Polyline, CircleMarker } from "react-leaflet";
-import { MapPinned, RefreshCcw } from "lucide-react";
+import { ChevronDown, MapPinned, RefreshCcw } from "lucide-react";
 import PageHeader from "../components/PageHeader";
 import StatusBadge from "../components/StatusBadge";
 import { formatTelemetryTime } from "../utils/telemetry.mjs";
@@ -39,8 +39,8 @@ export default function RoutesPage({ geofence, routePoints = [], routeHistory = 
 
     {geofence && <GeofenceEditor key={deviceCode} fence={geofence} deviceCode={deviceCode} lastPoint={lastPoint} />}
 
-    <section className="panel">
-      <div className="section-title"><h3>نقاط ثبت‌شده</h3><span className="muted small-text">{history.length} مورد</span></div>
+    <details className="panel route-history">
+      <summary><h3>نقاط ثبت‌شده</h3><span className="muted small-text">{history.length} مورد</span><ChevronDown className="route-history-chevron" size={20} aria-hidden="true" /></summary>
       <div className="route-list">
         {history.map((item) => <article className="route-row" key={item.id}>
           <div className="route-icon"><MapPinned size={18} /></div>
@@ -49,6 +49,6 @@ export default function RoutesPage({ geofence, routePoints = [], routeHistory = 
         </article>)}
       </div>
       {!history.length && <div className="empty-state">هنوز موقعیتی در تاریخچه ثبت نشده است.</div>}
-    </section>
+    </details>
   </section>;
 }

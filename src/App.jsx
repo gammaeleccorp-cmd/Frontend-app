@@ -197,6 +197,7 @@ function AppFrame({ data, setData }) {
   const logout = () => { repo.logout(); navigate("/login", { replace: true }); };
   return <main className="app-shell">
     <AppHeader
+      welcome={showWelcome && <div className="toast welcome-toast" role="status" dir="rtl">کاربر عزیز{firstName && <>، <bdi>{firstName}</bdi></>}، خوش آمدید!</div>}
       product={product}
       vehicle={data.vehicle}
       availableProducts={allowedProducts}
@@ -212,7 +213,6 @@ function AppFrame({ data, setData }) {
       <Outlet context={{ data, setData, product, now, geofence, allowedProducts, setProduct: changeProduct, showToast, logout }} />
     </PageTransition>
     <BottomNav product={product} path={location.pathname} onNavigate={navigate} />
-    {showWelcome && <div className="toast welcome-toast" role="status" dir="rtl">کاربر عزیز{firstName && <>، <bdi>{firstName}</bdi></>}، خوش آمدید!</div>}
     {toast && <div className="toast" role="status">{toast}</div>}
   </main>;
 }

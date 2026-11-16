@@ -20,8 +20,9 @@ const assert = require("node:assert/strict");
     const geofenceWrites = [];
     let geofence = { supports_polygon: true, configured: false, is_active: false, position: "UNKNOWN" };
     page.on("pageerror", e => pageErrors.push(e.message));
-    await page.route("https://*.tile.openstreetmap.org/**", route => route.abort());
-    await page.route("https://tile.openstreetmap.org/**", route => route.abort());
+    // Keep map controls interactive without relying on the external tile service.
+    const tile=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aX1sAAAAASUVORK5CYII=','base64');
+    await page.route(/https:\/\/(.*\.)?tile\.openstreetmap\.org\//, route => route.fulfill({contentType:'image/png',body:tile}));
 
     await page.route("https://api.gamma-tech.ir/**", async route => {
       const request = route.request();
@@ -35,7 +36,7 @@ const assert = require("node:assert/strict");
         { id: "d1", device_code: "NG-0001", product_type: "NEGAHBAN", status: "ACTIVE", vehicle_id: null }
       ];
       else if (path === "/api/v1/auth/otp/me/") data = {
-        first_name: "تست", last_name: "کاربر",
+        first_name: "سید محمدحسین عبدالرحمن نامبسیارطولانیبدونفاصلهبرایآزمایشچیدمان", last_name: "کاربر",
         mobile: "09111111111", preferred_product: "NEGAHBAN"
       };
       else if (path === "/api/v1/notifications/") data = { unread_count: 20, items: Array.from({length:20},(_,i)=>({id:i,title:"اعلان",body:"پیام بلند فارسی ".repeat(35)})) };
@@ -74,6 +75,41 @@ const assert = require("node:assert/strict");
 
     await page.getByText("وضعیت ردیاب", { exact: true }).waitFor();
     await page.getByText("دستگاه NG-0001", { exact: true }).waitFor();
+    // Sample the existing fade at entrance, visible, and exit frames with a long RTL name.
+    for (const width of [320,390]) {
+      await page.setViewportSize({width,height:844});
+      await page.reload();
+      const welcome=page.locator('.welcome-toast');
+      await welcome.waitFor({state:'attached'});
+      for(const time of [0,160,320,2000,3280,3800,3999]) {
+        const layout=await welcome.evaluate((el,time)=>{
+          const animation=el.getAnimations()[0];
+          animation.pause(); animation.currentTime=time;
+          const box=el.getBoundingClientRect();
+          const brand=document.querySelector('.gamma-brand').getBoundingClientRect();
+          return {top:box.top,bottom:brand.bottom,left:box.left,right:box.right,
+            rtl:getComputedStyle(el).direction,wrapped:box.height>70,
+            fits:el.scrollWidth<=el.clientWidth+1};
+        },time);
+        assert.ok(layout.top>=layout.bottom+10,`welcome overlaps brand at ${width}px / ${time}ms`);
+        assert.ok(layout.left>=0 && layout.right<=width);
+        assert.equal(layout.rtl,'rtl');
+        assert.equal(layout.wrapped,true);
+        assert.equal(layout.fits,true);
+      }
+      await welcome.evaluate(el=>{ el.getAnimations()[0].currentTime=2000; });
+      if(process.env.E2E_SHOTS) {
+        require('node:fs').mkdirSync(process.env.E2E_SHOTS,{recursive:true});
+        await page.screenshot({path:require('node:path').join(process.env.E2E_SHOTS,`welcome-${width}.png`)});
+      }
+      await welcome.waitFor({state:'detached',timeout:5000});
+    }
+    await page.emulateMedia({reducedMotion:'reduce'});
+    await page.reload();
+    await page.locator('.welcome-toast').waitFor({state:'attached'});
+    assert.equal(await page.locator('.welcome-toast').evaluate(el=>getComputedStyle(el).animationName),'none');
+    await page.locator('.welcome-toast').waitFor({state:'detached',timeout:5000});
+    await page.emulateMedia({reducedMotion:'no-preference'});
     for (const width of [320,1280]) {
       await page.setViewportSize({width,height:844});
       assert.equal(await page.getByRole('button',{name:'افزودن دستگاه',exact:true}).count(),0);
@@ -128,7 +164,21 @@ const assert = require("node:assert/strict");
     await page.locator(".geofence-card button").click();
     await page.waitForURL("**/routes");
 
+    const disclosure=page.locator('.route-history');
+    const summary=disclosure.locator('summary');
     const rows=page.locator('.route-row');
+    assert.equal(await disclosure.getAttribute('open'),null);
+    assert.equal(await rows.first().isVisible(),false);
+    assert.match(await summary.innerText(),/2 مورد/);
+    await summary.focus();
+    await page.keyboard.press('Enter');
+    assert.equal(await rows.first().isVisible(),true);
+    await page.keyboard.press('Space');
+    assert.equal(await rows.first().isVisible(),false);
+    await page.keyboard.press('Enter');
+    await page.emulateMedia({reducedMotion:'reduce'});
+    assert.equal(await page.locator('.route-history-chevron').evaluate(el=>getComputedStyle(el).transitionDuration),'0s');
+    await page.emulateMedia({reducedMotion:'no-preference'});
     assert.equal(await rows.count(),2);
     assert.equal(await page.locator('a[href*="neshan.org"]').count(),2);
     const expected=[
@@ -156,11 +206,32 @@ const assert = require("node:assert/strict");
     assert.equal(await page.locator('.full-map .leaflet-container').count(),1);
     assert.equal(await page.locator('.full-map path.leaflet-interactive').count(),2);
 
+    const routeMap=page.locator('.full-map .leaflet-container');
+    const routeMapElement=await routeMap.elementHandle();
+    for(const expanded of [false,true,false]) {
+      await summary.click();
+      assert.equal(await rows.first().isVisible(),expanded);
+      assert.equal(await routeMap.evaluate((el,original)=>el===original,routeMapElement),true);
+      await routeMap.scrollIntoViewIfNeeded();
+      const zoom=routeMap.locator('.leaflet-control-zoom-in');
+      const before=await routeMap.locator('.leaflet-proxy').getAttribute('style');
+      await zoom.click();
+      await page.waitForTimeout(300);
+      assert.notEqual(await routeMap.locator('.leaflet-proxy').getAttribute('style'),before);
+    }
     await page.getByRole("button",{name:/محدوده جغرافیایی/}).click();
     const map=page.locator('#fence-editor .leaflet-container');
     await page.waitForTimeout(250);
     for(const [x,y] of [[70,70],[180,65],[205,200],[80,210]]) await map.click({position:{x,y}});
     await page.getByText('۴ از ۴',{exact:true}).waitFor();
+    // History disclosure must preserve the mounted geofence map and its unsaved vertices.
+    const fenceMapElement=await map.elementHandle();
+    for(const expanded of [true,false]) {
+      await summary.click();
+      assert.equal(await rows.first().isVisible(),expanded);
+      assert.equal(await map.evaluate((el,original)=>el===original,fenceMapElement),true);
+      await page.getByText('۴ از ۴',{exact:true}).waitFor();
+    }
     await page.getByRole('button',{name:'حذف آخرین نقطه'}).click();
     await page.getByText('۳ از ۴',{exact:true}).waitFor();
     await map.click({position:{x:80,y:210}});

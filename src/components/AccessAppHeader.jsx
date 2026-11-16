@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { PRODUCTS } from "../data/mockData";
 import { formatTelemetryTime } from "../utils/telemetry.mjs";
 
-export default function AccessAppHeader({ product, vehicle, availableProducts = [], onProductChange, online = false, notifications = { unread_count: 0, items: [] }, onMarkNotificationsRead }) {
+export default function AccessAppHeader({ welcome, product, vehicle, availableProducts = [], onProductChange, online = false, notifications = { unread_count: 0, items: [] }, onMarkNotificationsRead }) {
   const rahban = product === PRODUCTS.RAHBAN;
   const canSwitch = availableProducts.length > 1;
   const [open, setOpen] = useState(false);
@@ -30,6 +30,7 @@ export default function AccessAppHeader({ product, vehicle, availableProducts = 
   return (
     <header className="app-header">
       <BrandHeader />
+      {welcome}
       <div className="app-header-main">
         <div>
           <div className="header-title-row">
