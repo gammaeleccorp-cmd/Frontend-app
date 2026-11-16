@@ -746,3 +746,24 @@ button:active:not(:disabled) { transform: translateY(1px); }
 .metrics.negahban-metrics.status-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .status-metrics > .metric-card { min-width: 0; overflow-wrap: anywhere; }
 .status-metrics .geofence-card small { white-space: normal; }
+
+/* Flag 15: keep the header above all Leaflet panes. */
+.app-header { position: relative; z-index: 2000; overflow: visible; }
+.platform-title { width: 100%; text-align: center; margin: 0 0 16px; font-size: clamp(10px, 3vw, 13px); }
+.app-header-main > div:first-child { min-width: 0; overflow-wrap: anywhere; }
+.notification-panel { z-index: 2100; width: min(340px, calc(100vw - 32px)); max-height: min(65dvh, 520px); display: flex; flex-direction: column; overflow: hidden; inset-inline-end: 0; inset-inline-start: auto; }
+.notification-heading { flex: 0 0 auto; }
+.notification-list { overflow-y: auto; overscroll-behavior: contain; min-height: 0; }
+.notification-item { overflow-wrap: anywhere; }
+.fence-disclosure { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .2s ease; }
+.fence-disclosure.is-open { grid-template-rows: 1fr; }
+.fence-disclosure > div { overflow: hidden; min-height: 0; }
+.fence-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+button, a.primary-btn, a.secondary-btn { min-height: 44px; }
+:focus-visible { outline: 3px solid var(--accent, #ff6b1a); outline-offset: 3px; }
+button:disabled { opacity: .55; cursor: not-allowed; }
+@media (prefers-reduced-motion: reduce) { .fence-disclosure { transition: none; } }
+.platform-title { grid-column: 1 / -1; }
+.app-header-main { grid-column: 1; }
+@media (max-width: 600px) { .app-header-main { grid-column: 1 / -1; } }
+.platform-title { grid-column: 1 / -1; }

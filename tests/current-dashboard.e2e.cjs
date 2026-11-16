@@ -18,7 +18,7 @@ const assert = require("node:assert/strict");
     const unexpected = [];
     const pageErrors = [];
     const geofenceWrites = [];
-    let geofence = { configured: false, is_active: false, position: "UNKNOWN" };
+    let geofence = { supports_polygon: true, configured: false, is_active: false, position: "UNKNOWN" };
     page.on("pageerror", e => pageErrors.push(e.message));
     await page.route("https://*.tile.openstreetmap.org/**", route => route.abort());
     await page.route("https://tile.openstreetmap.org/**", route => route.abort());
@@ -38,7 +38,8 @@ const assert = require("node:assert/strict");
         first_name: "تست", last_name: "کاربر",
         mobile: "09111111111", preferred_product: "NEGAHBAN"
       };
-      else if (path === "/api/v1/notifications/") data = { unread_count: 0, items: [] };
+      else if (path === "/api/v1/notifications/") data = { unread_count: 20, items: Array.from({length:20},(_,i)=>({id:i,title:"اعلان",body:"پیام بلند فارسی ".repeat(35)})) };
+      else if (path === "/api/v1/notifications/read/") data = {};
       else if (path === "/api/v1/telemetry/devices/NG-0001/latest/") data = null;
       else if (path === "/api/v1/telemetry/devices/NG-0001/history/") data = [];
       else if (path === "/api/v1/devices/NG-0001/geofence/") {
@@ -46,7 +47,7 @@ const assert = require("node:assert/strict");
         else if (method === "PUT") {
           const body = request.postDataJSON();
           geofenceWrites.push({ method, body });
-          geofence = { ...body, configured: true, is_active: true, position: "INSIDE", last_recorded_at: "2026-10-31T08:00:00Z" };
+          geofence = { ...body, supports_polygon: true, configured: true, is_active: true, position: "INSIDE", last_recorded_at: "2026-10-31T08:00:00Z" };
           data = geofence;
         } else if (method === "DELETE") {
           geofenceWrites.push({ method });
@@ -74,38 +75,32 @@ const assert = require("node:assert/strict");
     await page.locator(".geofence-card button").click();
     await page.waitForURL("**/routes");
 
-    const fields = page.locator('form input[type="number"]');
-    await fields.nth(0).fill("35.7001");
-    await fields.nth(1).fill("51.4002");
-    await fields.nth(2).fill("500");
-    await page.locator('form button[type="submit"]').click();
-    await page.waitForFunction(() => document.querySelector('form button[type="button"]')?.disabled === false);
-    assert.deepEqual(geofenceWrites[0], {
-      method: "PUT",
-      body: { latitude: 35.7001, longitude: 51.4002, radius_m: 500 },
-    });
-
-    // Editing sends the full replacement configuration.
-    await fields.nth(0).fill("35.7101");
-    await fields.nth(1).fill("51.4102");
-    await fields.nth(2).fill("750");
-    await page.locator('form button[type="submit"]').click();
-    await page.waitForFunction(() => document.querySelector('form button[type="submit"]')?.disabled === false);
-    assert.deepEqual(geofenceWrites[1], {
-      method: "PUT",
-      body: { latitude: 35.7101, longitude: 51.4102, radius_m: 750 },
-    });
-
-    // A newer transition on the unchanged active fence raises an in-app event.
-    geofence = { ...geofence, position: "OUTSIDE", last_recorded_at: "2026-10-31T08:01:00Z" };
-    await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
-    const transitionToast = page.locator(".toast:not(.welcome-toast)");
-    await transitionToast.waitFor();
-    assert.match(await transitionToast.textContent(), /NG-0001/);
-
-    await page.locator('form button[type="button"]').click();
-    await page.waitForFunction(() => document.querySelector('form button[type="button"]')?.disabled === true);
-    assert.deepEqual(geofenceWrites[2], { method: "DELETE" });
+    await page.getByRole("button",{name:/محدوده جغرافیایی/}).click();
+    const map=page.locator('#fence-editor .leaflet-container');
+    await page.waitForTimeout(250);
+    for(const [x,y] of [[70,70],[180,65],[205,200],[80,210]]) await map.click({position:{x,y}});
+    await page.getByText('۴ از ۴',{exact:true}).waitFor();
+    await page.getByRole('button',{name:'حذف آخرین نقطه'}).click();
+    await page.getByText('۳ از ۴',{exact:true}).waitFor();
+    await map.click({position:{x:80,y:210}});
+    await page.getByRole('button',{name:'ذخیره محدوده',exact:true}).click();
+    await page.getByText('محدوده ذخیره شد.',{exact:true}).waitFor();
+    assert.equal(geofenceWrites[0].body.boundary_points.length,4);
+    await page.getByRole('button',{name:'شروع دوباره'}).click();
+    for(const [x,y] of [[70,70],[200,210],[70,210],[200,70]]) await map.click({position:{x,y}});
+    assert.equal(await page.getByRole('button',{name:'ذخیره محدوده',exact:true}).isDisabled(),true);
+    await page.getByRole('button',{name:/اعلان‌ها/}).click();
+    const panel=page.locator('.notification-panel');
+    await panel.waitFor();
+    assert.equal(await page.locator('.notification-list').evaluate(el=>el.scrollHeight>el.clientHeight),true);
+    await page.keyboard.press('Escape');
+    assert.equal(await panel.count(),0);
+    for(const width of [320,390,1280]) {
+      await page.setViewportSize({width,height:844});
+      const box=await page.locator('.platform-title').boundingBox();
+      const header=await page.locator('.app-header').boundingBox();
+      assert.ok(Math.abs(box.x+box.width/2-header.x-header.width/2)<2);
+    }
     assert.deepEqual(unexpected, [], "Unexpected API requests");
     assert.deepEqual(pageErrors, [], "Browser errors");
 

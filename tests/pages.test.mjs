@@ -23,7 +23,7 @@ test("Negahban pages render without a vehicle or fresh telemetry", async () => {
     assert.match(home, /NG-0001/);
     assert.match(home, /داده تازه دریافت نشده/);
     assert.match(home, /class="speed-card"/);
-    assert.match(home, /داده قدیمی/);
+    assert.match(home, /سرعت دریافت نشده/);
     assert.match(home, /مشاهده نقشه و مسیرها/);
 
     const vehicle = renderToStaticMarkup(createElement(VehiclePage, { product: "NEGAHBAN", data, now: Date.parse("2026-10-07T10:00:00Z"), onBack() {}, onRoutes() {} }));

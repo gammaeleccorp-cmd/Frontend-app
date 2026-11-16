@@ -1,3 +1,4 @@
+import { recordedPosition, neshanUrl } from "../utils/flag15.mjs";
 import { Car, Cpu, MapPinned, Radio, Satellite } from "lucide-react";
 import { useState } from "react";
 import PageHeader from "../components/PageHeader";
@@ -12,7 +13,7 @@ export default function VehiclePage({ product, data, now, onBack, onUpdate, onRo
   const vehicle = data.vehicle || {};
   const negahban = product === PRODUCTS.NEGAHBAN;
   const online = isTelemetryFresh(data.latestTelemetry, now);
-  const lastLocation = data.lastLocation;
+  const lastLocation = recordedPosition(data)?.coordinates;
 
   return <section className="page-section">
     <PageHeader eyebrow="DEVICE" title={negahban ? "دستگاه نگهبان" : "خودرو و دستگاه"} subtitle="اطلاعات ثبت‌شده و وضعیت ارتباط" onBack={onBack} />
@@ -30,12 +31,12 @@ export default function VehiclePage({ product, data, now, onBack, onUpdate, onRo
       <InfoCard icon={<Cpu />} label="کد عمومی دستگاه" value={vehicle.deviceCode || "—"} mono />
       <InfoCard icon={<Radio />} label="آخرین دریافت" value={formatTelemetryTime(data.latestTelemetry?.received_at || data.latestTelemetry?.recorded_at)} />
       <InfoCard icon={<Satellite />} label="وضعیت GNSS" value={isTelemetryFresh({ recorded_at: data.latestTelemetry?.recorded_at }, now) && coordinates(data.latestTelemetry) ? "موقعیت تازه دریافت شد" : lastLocation ? "وضعیت فعلی نامشخص" : "موقعیتی ثبت نشده"} />
-      <InfoCard icon={<MapPinned />} label="زمان ثبت موقعیت" value={formatTelemetryTime(data.latestTelemetry?.recorded_at)} />
+      <InfoCard icon={<MapPinned />} label="زمان ثبت موقعیت" value={formatTelemetryTime(recordedPosition(data)?.recordedAt)} />
     </section>
 
     {negahban && <section className="panel">
       <div className="section-title"><h3>موقعیت دستگاه</h3></div>
-      <p className="muted mono">{lastLocation ? `${lastLocation[0].toFixed(6)}, ${lastLocation[1].toFixed(6)}` : "موقعیتی ثبت نشده است."}</p>
+      {lastLocation ? <a href={neshanUrl(recordedPosition(data)?.coordinates || lastLocation)} target="_blank" rel="noopener noreferrer">باز کردن در نشان</a> : <p>موقعیتی ثبت نشده است.</p>}
       <button type="button" className="secondary-btn" onClick={onRoutes}>مشاهده نقشه و مسیرها</button>
     </section>}
 

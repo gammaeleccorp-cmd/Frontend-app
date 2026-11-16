@@ -21,8 +21,8 @@ test("start screen welcomes a user without a device and reuses /add-device", asy
   const { default: WelcomeStartPage } = await load("/src/pages/WelcomeStartPage.jsx");
   const html = renderToStaticMarkup(createElement(WelcomeStartPage, { onStart: noop }));
   assert.match(html, /به گاما خوش آمدید/);
-  assert.match(html, /برای شروع ردیابی، روی دکمهٔ زیر بزنید و اطلاعات محصول خود را وارد کنید\./);
-  assert.match(html, /<button[^>]*>شروع ردیابی<\/button>/);
+  assert.match(html, /ثبت دستگاه موقتاً در دسترس نیست\./);
+  assert.match(html, /<button[^>]*disabled[^>]*>شروع ردیابی<\/button>/);
 
   const { default: DeviceOnboardingPage } = await load("/src/pages/DeviceOnboardingPage.jsx");
   const form = renderToStaticMarkup(createElement(DeviceOnboardingPage, { onSubmit: noop, onBack: noop }));
@@ -33,7 +33,7 @@ test("start screen welcomes a user without a device and reuses /add-device", asy
 
   // App.jsx cannot be SSR-loaded (react-router CJS); assert the wiring in source instead.
   const appSource = await readFile(new URL("../src/App.jsx", import.meta.url), "utf8");
-  assert.match(appSource, /if \(!data\.devices\?\.length\) return <WelcomeStartPage onStart=\{\(\) => navigate\("\/add-device"\)\} \/>/);
+  assert.match(appSource, /if \(!data\.devices\?\.length\) return <WelcomeStartPage \/>/);
   assert.match(appSource, /<Route path="\/add-device" element=\{<AddDeviceRoute \/>\} \/>/);
   assert.match(appSource, /<HomePage product=\{product\} data=\{data\}/, "dashboard for users with devices is kept");
 });

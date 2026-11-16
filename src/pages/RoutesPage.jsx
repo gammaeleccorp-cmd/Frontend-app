@@ -1,7 +1,8 @@
+import { latestPosition, neshanUrl } from "../utils/flag15.mjs";
 import GeofenceEditor from "../components/GeofenceEditor";
 import { useState } from "react";
 import { MapContainer, TileLayer, Polyline, CircleMarker } from "react-leaflet";
-import { MapPinned, RefreshCcw, Route } from "lucide-react";
+import { RefreshCcw } from "lucide-react";
 import PageHeader from "../components/PageHeader";
 import StatusBadge from "../components/StatusBadge";
 import { formatTelemetryTime } from "../utils/telemetry.mjs";
@@ -11,7 +12,7 @@ export default function RoutesPage({ geofence, routePoints = [], routeHistory = 
   const [mapVersion, setMapVersion] = useState(0);
   const points = routePoints.filter((point) => Array.isArray(point) && point.length === 2 && point.every(Number.isFinite));
   const lastPoint = points.at(-1);
-  const latest = routeHistory[0];
+  const latest = latestPosition(routeHistory);
   const retryMap = () => { setTilesFailed(false); setMapVersion((version) => version + 1); };
 
   return <section className="page-section">
@@ -30,11 +31,8 @@ export default function RoutesPage({ geofence, routePoints = [], routeHistory = 
           {tilesFailed && <div className="map-error-overlay" role="alert">کاشی‌های نقشه بارگذاری نشدند. مختصات در پایین قابل مشاهده‌اند.<button type="button" className="secondary-btn" onClick={retryMap}>تلاش مجدد</button></div>}
         </> : <div className="empty-state map-empty">{historyError || "هنوز موقعیت واقعی از دستگاه دریافت نشده است."}</div>}
       </div>
-      <div className="route-summary">
-        <Summary icon={<MapPinned size={17} />} label="آخرین مختصات" value={lastPoint ? `${lastPoint[0].toFixed(6)}, ${lastPoint[1].toFixed(6)}` : "—"} mono />
-        <Summary icon={<Route size={17} />} label="نقاط معتبر" value={String(points.length)} />
-        <Summary icon={<RefreshCcw size={17} />} label="زمان آخرین موقعیت" value={formatTelemetryTime(latest?.recordedAt)} />
-      </div>
+      {latest ? <a className="primary-btn" href={neshanUrl(latest.coordinates)} target="_blank" rel="noopener noreferrer">باز کردن آخرین موقعیت در نشان</a> : <p>هنوز موقعیت معتبری ثبت نشده است.</p>}
+      <p>{formatTelemetryTime(latest?.recordedAt)}</p>
       {historyError && <p className="form-error" role="alert">{historyError}</p>}
       <button type="button" className="secondary-btn route-refresh" disabled={syncing} onClick={onSync}>
         <RefreshCcw size={16} className={syncing ? "spin" : ""} />{syncing ? "در حال به‌روزرسانی..." : "به‌روزرسانی موقعیت‌ها"}
@@ -43,20 +41,6 @@ export default function RoutesPage({ geofence, routePoints = [], routeHistory = 
 
     {geofence && <GeofenceEditor key={deviceCode} fence={geofence} deviceCode={deviceCode} lastPoint={lastPoint} />}
 
-    <section className="panel">
-      <div className="section-title"><h3>نقاط ثبت‌شده</h3><span className="muted small-text">{routeHistory.length} مورد</span></div>
-      <div className="route-list">
-        {routeHistory.map((item) => <article className="route-row" key={item.id}>
-          <div className="route-icon"><MapPinned size={18} /></div>
-          <div className="route-row-main"><strong>{item.date}</strong><span className="muted mono">{item.coordinates?.map((value) => value.toFixed(6)).join(", ")}</span></div>
-          <div className="route-row-meta"><span className="muted">{item.speed == null ? "" : `${item.speed} km/h`}</span></div>
-        </article>)}
-      </div>
-      {!routeHistory.length && <div className="empty-state">هنوز موقعیتی در تاریخچه ثبت نشده است.</div>}
-    </section>
-  </section>;
-}
 
-function Summary({ icon, label, value, mono = false }) {
-  return <div className="route-summary-item"><span className="summary-icon">{icon}</span><span className="muted">{label}</span><strong className={mono ? "mono" : ""}>{value}</strong></div>;
+  </section>;
 }
