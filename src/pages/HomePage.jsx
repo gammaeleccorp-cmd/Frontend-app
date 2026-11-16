@@ -1,4 +1,4 @@
-import { recordedPosition, neshanUrl, liveSpeed } from "../utils/flag15.mjs";
+import { recordedPosition, liveSpeed } from "../utils/flag15.mjs";
 import GeofenceCard from "../components/GeofenceCard";
 import {
   AlertTriangle,
@@ -186,8 +186,8 @@ function NegahbanHome({ data, now, onNavigate }) {
 
         <div className="location-summary-grid">
           <div>
-
-            {location ? <a href={neshanUrl(location)} target="_blank" rel="noopener noreferrer">باز کردن در نشان</a> : <p>موقعیتی ثبت نشده است.</p>}
+            <span className="muted">مختصات</span>
+            <strong className="mono">{location ? `${location[0].toFixed(6)}, ${location[1].toFixed(6)}` : "ثبت نشده"}</strong>
           </div>
           <div>
             <span className="muted">زمان موقعیت</span>

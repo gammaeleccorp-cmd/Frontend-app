@@ -77,12 +77,22 @@ const path = require('path');
   await page.getByRole('button',{name:'ورود به داشبورد',exact:true}).click();
   await page.waitForURL('**/home');
   await page.getByRole('heading',{name:'به گاما خوش آمدید'}).waitFor();
-  assert.equal(await page.getByRole('button',{name:'شروع ردیابی',exact:true}).isDisabled(),true);
+  for (const width of [320,1280]) {
+    await page.setViewportSize({width,height:844});
+    const empty=page.locator('.welcome-start');
+    assert.equal(await empty.count(),1);
+    assert.equal(await empty.getAttribute('dir'),'rtl');
+    assert.equal(await empty.getByText('ثبت دستگاه فعلاً در دسترس نیست.',{exact:true}).count(),1);
+    assert.equal(await empty.locator('button').count(),0);
+    assert.equal(await page.getByRole('button',{name:'افزودن دستگاه',exact:true}).count(),0);
+    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
+    await page.screenshot({path:path.join(shots,`no-device-${width}.png`),fullPage:true});
+  }
   await page.goto(`${process.env.E2E_BASE || "http://127.0.0.1:4173"}/add-device`);
   await page.waitForURL('**/home');
   assert.equal(await page.locator('#device-code').count(),0);
   assert.deepEqual(errors,[]);
   if(!process.env.E2E_SHOTS) fs.writeFileSync(path.join(__dirname,'../../browser-test-results.json'),JSON.stringify({passed:true,viewport:'390x844',api:'intercepted test service',requests},null,2));
-  console.log('PASS: mobile registration → 5-digit OTP → dashboard → missing/network errors → device binding; RTL/LTR, alignment, placeholders, typing, no vehicle payload.');
+  console.log('PASS: registration → 5-digit OTP → no-device empty state at 320px/desktop → guarded add-device redirect; RTL/LTR, alignment, placeholders, typing, no vehicle payload.');
   await browser.close();
 })().catch(e=>{console.error(e);process.exit(1)});

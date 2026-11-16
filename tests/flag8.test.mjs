@@ -17,12 +17,13 @@ function json(payload, status = 200, type = "application/json") {
   return new Response(typeof payload === "string" ? payload : JSON.stringify(payload), { status, headers: { "content-type": type } });
 }
 
-test("start screen welcomes a user without a device and reuses /add-device", async () => {
+test("start screen shows one RTL registration message without a button and guards /add-device", async () => {
   const { default: WelcomeStartPage } = await load("/src/pages/WelcomeStartPage.jsx");
   const html = renderToStaticMarkup(createElement(WelcomeStartPage, { onStart: noop }));
   assert.match(html, /به گاما خوش آمدید/);
-  assert.match(html, /ثبت دستگاه موقتاً در دسترس نیست\./);
-  assert.match(html, /<button[^>]*disabled[^>]*>شروع ردیابی<\/button>/);
+  assert.equal((html.match(/ثبت دستگاه فعلاً در دسترس نیست\./g) || []).length, 1);
+  assert.match(html, /dir="rtl"/);
+  assert.doesNotMatch(html, /<button|disabled|افزودن دستگاه|شروع ردیابی/);
 
   const { default: DeviceOnboardingPage } = await load("/src/pages/DeviceOnboardingPage.jsx");
   const form = renderToStaticMarkup(createElement(DeviceOnboardingPage, { onSubmit: noop, onBack: noop }));
@@ -35,6 +36,8 @@ test("start screen welcomes a user without a device and reuses /add-device", asy
   const appSource = await readFile(new URL("../src/App.jsx", import.meta.url), "utf8");
   assert.match(appSource, /if \(!data\.devices\?\.length\) return <WelcomeStartPage \/>/);
   assert.match(appSource, /<Route path="\/add-device" element=\{<AddDeviceRoute \/>\} \/>/);
+  assert.doesNotMatch(appSource, /home-actions|registration-status|افزودن دستگاه|ثبت دستگاه .*در دسترس نیست/);
+  assert.match(appSource, /function AddDeviceRoute\(\) \{ return <Navigate to="\/home" replace \/>; \}/);
   assert.match(appSource, /<HomePage product=\{product\} data=\{data\}/, "dashboard for users with devices is kept");
 });
 

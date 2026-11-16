@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {polygonError, liveSpeed, latestPosition, neshanUrl} from '../src/utils/flag15.mjs';
+import {polygonError, liveSpeed, latestPosition, recentRecordedPoints, neshanUrl} from '../src/utils/flag15.mjs';
 test('free boundary and crossed boundary validation',()=>{
  assert.equal(polygonError([[1,1],[2,1],[3,4],[1,3]]),'');
  assert.ok(polygonError([[1,1],[3,3],[1,3],[3,1]]));
@@ -29,4 +29,16 @@ test('device_status zero overrides speed and older arrivals cannot restore speed
  assert.equal(liveSpeed(newestSample(newer,older),now),0);
  assert.equal(liveSpeed(newer,now+90001),null);
  assert.equal(newestSample(newer,null),newer);
+});
+
+test('recorded history keeps the newest 100 valid points without mutating input',()=>{
+ const valid=Array.from({length:105},(_,i)=>({id:i,recordedAt:new Date(Date.UTC(2026,0,1,0,i)).toISOString(),coordinates:[35+i/1000,51+i/1000]}));
+ const history=[...valid,{recordedAt:'2027-01-01',coordinates:[999,51]},{recordedAt:'bad',coordinates:[35,51]},{recordedAt:'2027-01-01',coordinates:[0,0]},{recordedAt:'2027-01-01',coordinates:[35,Infinity]}];
+ const original=history.slice();
+ const points=recentRecordedPoints(history);
+ assert.equal(points.length,100);
+ assert.equal(points[0].id,104);
+ assert.equal(points.at(-1).id,5);
+ assert.deepEqual(history,original);
+ assert.deepEqual(recentRecordedPoints([]),[]);
 });

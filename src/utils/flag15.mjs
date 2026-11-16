@@ -7,8 +7,11 @@ export function polygonError(points) {
   if (Math.abs(points.reduce((sum,p,i) => { const q=points[(i+1)%4]; return sum+p[0]*q[1]-q[0]*p[1]; },0)) < 1e-12) return "مساحت محدوده باید بیشتر از صفر باشد.";
   return "";
 }
+export function recentRecordedPoints(history = [], limit = 100) {
+  return history.filter(p => Array.isArray(p.coordinates) && p.coordinates.length === 2 && p.coordinates.every(Number.isFinite) && Math.abs(p.coordinates[0]) <= 90 && Math.abs(p.coordinates[1]) <= 180 && p.coordinates.some(v => v !== 0) && Number.isFinite(Date.parse(p.recordedAt))).sort((a,b) => Date.parse(b.recordedAt)-Date.parse(a.recordedAt)).slice(0, limit);
+}
 export function latestPosition(history = []) {
-  return history.filter(p => p.coordinates?.length === 2 && p.coordinates.every(Number.isFinite) && Math.abs(p.coordinates[0]) <= 90 && Math.abs(p.coordinates[1]) <= 180 && p.coordinates.some(v => v !== 0) && Number.isFinite(Date.parse(p.recordedAt))).sort((a,b) => Date.parse(b.recordedAt)-Date.parse(a.recordedAt))[0];
+  return recentRecordedPoints(history, 1)[0];
 }
 export const neshanUrl = point => `https://neshan.org/maps/@${point[0]},${point[1]},16z`;
 export function liveSpeed(sample, now = Date.now()) {

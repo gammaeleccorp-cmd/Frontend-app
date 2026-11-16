@@ -1,4 +1,4 @@
-import { recordedPosition, neshanUrl } from "../utils/flag15.mjs";
+import { recordedPosition } from "../utils/flag15.mjs";
 import { Car, Cpu, MapPinned, Radio, Satellite } from "lucide-react";
 import { useState } from "react";
 import PageHeader from "../components/PageHeader";
@@ -36,7 +36,7 @@ export default function VehiclePage({ product, data, now, onBack, onUpdate, onRo
 
     {negahban && <section className="panel">
       <div className="section-title"><h3>موقعیت دستگاه</h3></div>
-      {lastLocation ? <a href={neshanUrl(recordedPosition(data)?.coordinates || lastLocation)} target="_blank" rel="noopener noreferrer">باز کردن در نشان</a> : <p>موقعیتی ثبت نشده است.</p>}
+      <p className="muted mono">{lastLocation ? `${lastLocation[0].toFixed(6)}, ${lastLocation[1].toFixed(6)}` : "موقعیتی ثبت نشده است."}</p>
       <button type="button" className="secondary-btn" onClick={onRoutes}>مشاهده نقشه و مسیرها</button>
     </section>}
 

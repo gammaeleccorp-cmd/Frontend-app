@@ -219,7 +219,7 @@ function AppFrame({ data, setData }) {
 
 function useApp() { return useOutletContext(); }
 function useBack(fallback = "/home") { const navigate = useNavigate(); return () => { if (window.history.state?.idx > 0) navigate(-1); else navigate(fallback); }; }
-function HomeRoute() { const { data, product, now, geofence } = useApp(); const navigate = useNavigate(); if (!data.devices?.length) return <WelcomeStartPage />; return <><div className="home-actions"><button className="secondary-btn" type="button" disabled aria-describedby="registration-status">افزودن دستگاه</button><p id="registration-status" className="muted">ثبت دستگاه موقتاً در دسترس نیست.</p></div><HomePage product={product} data={data} geofence={geofence} now={now} onNavigate={(path) => navigate(path.startsWith("/") ? path : `/${path}`)} onDtcOpen={(dtc) => navigate(`/diagnostics/${dtc.code}`, { state: { dtc } })} /></>; }
+function HomeRoute() { const { data, product, now, geofence } = useApp(); const navigate = useNavigate(); if (!data.devices?.length) return <WelcomeStartPage />; return <HomePage product={product} data={data} geofence={geofence} now={now} onNavigate={(path) => navigate(path.startsWith("/") ? path : `/${path}`)} onDtcOpen={(dtc) => navigate(`/diagnostics/${dtc.code}`, { state: { dtc } })} />; }
 function AddDeviceRoute() { return <Navigate to="/home" replace />; }
 function VehicleRoute() {
   const { data, product, now, setData, showToast } = useApp(); const navigate = useNavigate();

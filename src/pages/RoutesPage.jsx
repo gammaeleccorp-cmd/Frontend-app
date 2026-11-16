@@ -1,8 +1,8 @@
-import { latestPosition, neshanUrl } from "../utils/flag15.mjs";
+import { recentRecordedPoints, neshanUrl } from "../utils/flag15.mjs";
 import GeofenceEditor from "../components/GeofenceEditor";
 import { useState } from "react";
 import { MapContainer, TileLayer, Polyline, CircleMarker } from "react-leaflet";
-import { RefreshCcw } from "lucide-react";
+import { MapPinned, RefreshCcw } from "lucide-react";
 import PageHeader from "../components/PageHeader";
 import StatusBadge from "../components/StatusBadge";
 import { formatTelemetryTime } from "../utils/telemetry.mjs";
@@ -12,7 +12,7 @@ export default function RoutesPage({ geofence, routePoints = [], routeHistory = 
   const [mapVersion, setMapVersion] = useState(0);
   const points = routePoints.filter((point) => Array.isArray(point) && point.length === 2 && point.every(Number.isFinite));
   const lastPoint = points.at(-1);
-  const latest = latestPosition(routeHistory);
+  const history = recentRecordedPoints(routeHistory);
   const retryMap = () => { setTilesFailed(false); setMapVersion((version) => version + 1); };
 
   return <section className="page-section">
@@ -28,11 +28,9 @@ export default function RoutesPage({ geofence, routePoints = [], routeHistory = 
             {points.length > 1 && <Polyline positions={points} color="#ff6b1a" />}
             <CircleMarker center={lastPoint} radius={9} pathOptions={{ color: "#ff6b1a", fillColor: "#ff6b1a", fillOpacity: 0.7 }} />
           </MapContainer>
-          {tilesFailed && <div className="map-error-overlay" role="alert">کاشی‌های نقشه بارگذاری نشدند. مختصات در پایین قابل مشاهده‌اند.<button type="button" className="secondary-btn" onClick={retryMap}>تلاش مجدد</button></div>}
+          {tilesFailed && <div className="map-error-overlay" role="alert">کاشی‌های نقشه بارگذاری نشدند. نقاط ثبت‌شده از فهرست پایین قابل مشاهده‌اند.<button type="button" className="secondary-btn" onClick={retryMap}>تلاش مجدد</button></div>}
         </> : <div className="empty-state map-empty">{historyError || "هنوز موقعیت واقعی از دستگاه دریافت نشده است."}</div>}
       </div>
-      {latest ? <a className="primary-btn" href={neshanUrl(latest.coordinates)} target="_blank" rel="noopener noreferrer">باز کردن آخرین موقعیت در نشان</a> : <p>هنوز موقعیت معتبری ثبت نشده است.</p>}
-      <p>{formatTelemetryTime(latest?.recordedAt)}</p>
       {historyError && <p className="form-error" role="alert">{historyError}</p>}
       <button type="button" className="secondary-btn route-refresh" disabled={syncing} onClick={onSync}>
         <RefreshCcw size={16} className={syncing ? "spin" : ""} />{syncing ? "در حال به‌روزرسانی..." : "به‌روزرسانی موقعیت‌ها"}
@@ -41,6 +39,16 @@ export default function RoutesPage({ geofence, routePoints = [], routeHistory = 
 
     {geofence && <GeofenceEditor key={deviceCode} fence={geofence} deviceCode={deviceCode} lastPoint={lastPoint} />}
 
-
+    <section className="panel">
+      <div className="section-title"><h3>نقاط ثبت‌شده</h3><span className="muted small-text">{history.length} مورد</span></div>
+      <div className="route-list">
+        {history.map((item) => <article className="route-row" key={item.id}>
+          <div className="route-icon"><MapPinned size={18} /></div>
+          <div className="route-row-main"><strong><time dateTime={item.recordedAt}>{item.date || formatTelemetryTime(item.recordedAt)}</time></strong><a className="muted" href={neshanUrl(item.coordinates)} target="_blank" rel="noopener noreferrer">مشاهده در نشان</a></div>
+          <div className="route-row-meta"><span className="muted">{item.speed == null ? "" : `${item.speed} km/h`}</span></div>
+        </article>)}
+      </div>
+      {!history.length && <div className="empty-state">هنوز موقعیتی در تاریخچه ثبت نشده است.</div>}
+    </section>
   </section>;
 }

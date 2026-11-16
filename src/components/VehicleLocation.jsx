@@ -1,5 +1,4 @@
 // @ts-check
-import { neshanUrl } from "../utils/flag15.mjs";
 import { useEffect, useRef, useState } from "react";
 import { getLatestLocation } from "../services/gammaRepository";
 
@@ -42,7 +41,6 @@ export default function VehicleLocation({ vehicleId }) {
       {error && <p className="error-text" role="alert">{error}</p>}
       {!loading && !error && !location && <p className="muted" role="status">هنوز موقعیتی برای این خودرو ثبت نشده است.</p>}
       {location && <>
-        <a href={neshanUrl([location.latitude,location.longitude])} target="_blank" rel="noopener noreferrer">باز کردن در نشان</a>
         <LocationMap key={`${location.latitude},${location.longitude},${attempt}`} location={location} />
         <div className="status-list">
           <div className="status-line"><span>آخرین به‌روزرسانی</span><time dateTime={location.recorded_at}>{new Date(location.recorded_at).toLocaleString("fa-IR")}</time></div>
