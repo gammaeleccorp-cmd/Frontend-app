@@ -838,10 +838,6 @@ button:disabled { opacity: .55; cursor: not-allowed; }
 .geofence-card > strong { grid-column: 2; font-size: 19px; margin: 0; }
 .geofence-card > small { grid-column: 2; color: #b9bbc1; }
 .geofence-card > button { grid-column: 3; grid-row: 1 / 4; }
-.route-interval { display: grid; gap: 10px; }
-.route-interval label { margin: 0; font-weight: 700; }
-.route-interval select { min-width: 0; min-height: 48px; font: inherit; color-scheme: dark; direction: rtl; }
-.route-interval p { width: 100%; margin: 0; font-size: 12px; line-height: 1.8; }
 .route-record-details summary { cursor: pointer; padding-block: 8px; min-height: 44px; color: #c3c5cb; }
 .route-record-details /* Keep popup chrome and its close control inside narrow map cards. */
 .full-map .leaflet-popup-content { max-width: calc(100cqw - 48px); }

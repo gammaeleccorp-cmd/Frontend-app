@@ -1,4 +1,3 @@
-import { HISTORY_INTERVALS, pointsWithinInterval } from "../utils/historyInterval.mjs";
 import { recentRecordedPoints, neshanUrl } from "../utils/flag15.mjs";
 import RecordedPointPopup from "../components/RecordedPointPopup";
 import { recordedSpeed } from "../utils/routeMarkers.mjs";
@@ -12,14 +11,12 @@ import PageHeader from "../components/PageHeader";
 import StatusBadge from "../components/StatusBadge";
 import { formatTelemetryTime } from "../utils/telemetry.mjs";
 
-const EMPTY_INTERVAL = "در داده‌های دریافت‌شده، نقطه‌ای در این بازه پیدا نشد؛ ممکن است تاریخچهٔ دیگری روی سرور موجود باشد.";
+const EMPTY_HISTORY = "هنوز نقطه‌ای برای این دستگاه دریافت نشده است.";
 
-export default function RoutesPage({ now = Date.now(), geofence, routePoints = [], routeHistory = [], deviceCode, online, historyError, onSync, syncing = false, onBack }) {
+export default function RoutesPage({ geofence, routePoints = [], routeHistory = [], deviceCode, online, historyError, onSync, syncing = false, onBack }) {
   const [tilesFailed, setTilesFailed] = useState(false);
   const [mapVersion, setMapVersion] = useState(0);
-  const [interval, setInterval] = useState(24);
-  const allHistory = recentRecordedPoints(routeHistory, Infinity);
-  const history = pointsWithinInterval(allHistory, interval, now);
+  const history = recentRecordedPoints(routeHistory, Infinity);
   const points = history.slice().reverse().map(point => point.coordinates).filter((point) => Array.isArray(point) && point.length === 2 && point.every(Number.isFinite));
   const markers = routeMarkers(history);
   const lastPoint = markers.at(-1)?.point.coordinates || points.at(-1);
@@ -39,7 +36,7 @@ export default function RoutesPage({ now = Date.now(), geofence, routePoints = [
             <RouteMarkers history={history} />
           </MapContainer>
           {tilesFailed && <div className="map-error-overlay" role="alert">کاشی‌های نقشه بارگذاری نشدند. نقاط ثبت‌شده از فهرست پایین قابل مشاهده‌اند.<button type="button" className="secondary-btn" onClick={retryMap}>تلاش مجدد</button></div>}
-        </> : <div className="empty-state map-empty">{historyError || EMPTY_INTERVAL}</div>}
+        </> : <div className="empty-state map-empty">{historyError || EMPTY_HISTORY}</div>}
       </div>
       {historyError && <p className="form-error" role="alert">{historyError}</p>}
       <button type="button" className="secondary-btn route-refresh" disabled={syncing} onClick={onSync}>
@@ -47,13 +44,6 @@ export default function RoutesPage({ now = Date.now(), geofence, routePoints = [
       </button>
     <details className="route-history">
       <summary><h3>نقاط ثبت‌شده</h3><span className="muted small-text">{history.length} مورد</span><ChevronDown className="route-history-chevron" size={20} aria-hidden="true" /></summary>
-      <div className="route-interval" dir="rtl">
-        <label htmlFor="route-interval">بازهٔ زمانی</label>
-        <select id="route-interval" value={interval} onChange={event => setInterval(Number(event.target.value))} aria-describedby="route-interval-coverage">
-          {HISTORY_INTERVALS.map(option => <option key={option.hours} value={option.hours}>{option.label}</option>)}
-        </select>
-        <p className="muted" id="route-interval-coverage" role="status">{history.length} از {allHistory.length} نقطهٔ دریافت‌شده در این بازه. ممکن است سرور فقط ۱۰۰ رکورد آخر را برگرداند.</p>
-      </div>
       <div className="route-list">
         {history.map((item) => <article className="route-row" key={`${item.id}-${item.recordedAt}-${item.coordinates.join(",")}`}>
           <div className="route-icon"><MapPinned size={18} /></div>
@@ -61,9 +51,9 @@ export default function RoutesPage({ now = Date.now(), geofence, routePoints = [
           <div className="route-row-meta"><span className="muted">{recordedSpeed(item.speed) === null ? "ثبت نشده" : `${recordedSpeed(item.speed)} km/h`}</span></div>
         </article>)}
       </div>
-      {!history.length && <div className="empty-state">{EMPTY_INTERVAL}</div>}
+      {!history.length && <div className="empty-state">{EMPTY_HISTORY}</div>}
     </details>
     </section>
-    {geofence && <GeofenceEditor key={deviceCode} fence={geofence} deviceCode={deviceCode} lastPoint={allHistory[0]?.coordinates || routePoints.at(-1)} />}
+    {geofence && <GeofenceEditor key={deviceCode} fence={geofence} deviceCode={deviceCode} lastPoint={history[0]?.coordinates || routePoints.at(-1)} />}
   </section>;
 }
