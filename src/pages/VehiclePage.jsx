@@ -40,13 +40,13 @@ export default function VehiclePage({ product, data, now, onBack, onUpdate, onRo
       <button type="button" className="secondary-btn" onClick={onRoutes}>مشاهده نقشه و مسیرها</button>
     </section>}
 
-    {vehicle.deviceCode && onSendRelay && <RelayControl key={vehicle.deviceCode} deviceCode={vehicle.deviceCode} onSend={onSendRelay} onPoll={onPollCommand} />}
+    {vehicle.deviceCode && onSendRelay && <RelayControl key={`relay:${vehicle.deviceCode}`} deviceCode={vehicle.deviceCode} onSend={onSendRelay} onPoll={onPollCommand} />}
 
     {vehicle.id ? <>
       <section className="panel vehicle-overview"><div className="vehicle-avatar"><Car size={30} /></div><div><h3>{vehicle.name || "خودرو"}</h3><p className="muted compact">{vehicle.model || "—"} · {vehicle.plate || "—"}</p></div></section>
       <VehicleForm key={vehicle.id} title="ویرایش اطلاعات خودرو" submitLabel="ذخیره اطلاعات خودرو" initial={{ model: vehicle.model === "—" ? "" : vehicle.model, color: vehicle.color === "—" ? "" : vehicle.color, production_year: vehicle.production_year || "", license_plate: vehicle.plate === "—" ? "" : vehicle.plate }} onSubmit={onUpdate} />
       {!negahban && <VehicleLocation vehicleId={vehicle.id} />}
-    </> : <OptionalVehicle key={vehicle.deviceCode} canRegister={Boolean(vehicle.deviceCode && onRegisterVehicle)} onRegister={onRegisterVehicle} />}
+    </> : <OptionalVehicle key={`optional-vehicle:${vehicle.deviceCode}`} canRegister={Boolean(vehicle.deviceCode && onRegisterVehicle)} onRegister={onRegisterVehicle} />}
   </section>;
 }
 
