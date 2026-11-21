@@ -270,6 +270,15 @@ const assert = require("node:assert/strict");
     const panel=page.locator('.notification-panel');
     await panel.waitFor();
     assert.equal(await page.locator('.notification-list').evaluate(el=>el.scrollHeight>el.clientHeight),true);
+    const okay = panel.getByRole('button', { name: 'باشه', exact: true });
+    const okayBounds = await okay.boundingBox();
+    const listBounds = await panel.locator('.notification-list').boundingBox();
+    assert.ok(okayBounds && listBounds && okayBounds.y + okayBounds.height <= listBounds.y);
+    await okay.click();
+    assert.equal(await panel.count(), 0);
+    await page.getByRole('button',{name:/اعلان‌ها/}).click();
+    await panel.getByText('اعلان جدیدی وجود ندارد.').waitFor();
+    assert.equal(await okay.isVisible(), true);
     await page.keyboard.press('Escape');
     assert.equal(await panel.count(),0);
     for(const width of [320,390,1280]) {
