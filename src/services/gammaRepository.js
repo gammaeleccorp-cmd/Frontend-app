@@ -244,6 +244,8 @@ function telemetryToMpuEvents(items) {
     .map((item) => ({
       id: item.id,
       type: "تصادف",
+      impactG: Number(item.impact_g),
+      recordedAt: item.recorded_at || item.received_at,
       level: item.impact_g == null ? "ثبت‌شده" : `${Number(item.impact_g).toFixed(2)} g`,
       time: formatTelemetryTime(item.recorded_at || item.received_at),
       speed: item.speed,
