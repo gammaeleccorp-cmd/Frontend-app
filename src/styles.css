@@ -848,7 +848,12 @@ button:disabled { opacity: .55; cursor: not-allowed; }
 .route-point-popup { color: var(--text); }
 .full-map .leaflet-popup-content .route-point-popup,
 .full-map .route-hover-tooltip .route-point-popup { color: #202024; }
-.full-map .route-hover-tooltip { max-width: min(240px, calc(100cqw - 48px)); white-space: normal; }
+.full-map .route-hover-tooltip {
+  box-sizing: border-box;
+  width: min(224px, calc(100cqw - 24px));
+  white-space: normal;
+}
+.full-map .route-hover-tooltip bdi { white-space: nowrap; }
 @media (max-width: 400px) {
   .negahban-metrics .geofence-card { grid-template-columns: auto minmax(0, 1fr); }
   .geofence-card > button { grid-column: 1 / -1; grid-row: auto; justify-self: center; }
