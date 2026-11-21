@@ -71,16 +71,21 @@ export default function AccessAppHeader({ welcome, product, vehicle, availablePr
             {unread > 0 && <span className="notification-count">{unread > 9 ? "+9" : unread}</span>}
           </button>
           {open && <section className="notification-panel" aria-label="اعلان‌های داخل اپ">
-            <div className="notification-heading"><strong>اعلان‌ها</strong><span className="muted">۳۰ روز اخیر</span></div>
+            <div className="notification-heading">
+              <strong>اعلان‌ها</strong>
+              <span className="muted">۳۰ روز اخیر</span>
+              <button type="button" className="secondary-btn" onClick={() => {
+                items.forEach(item => dismissImpact(item.impact ? item.id : serverKey(item)));
+                if (serverUnread) void Promise.resolve(onMarkNotificationsRead?.()).catch(() => {});
+                setOpen(false);
+                bell.current?.focus();
+              }}>باشه</button>
+            </div>
             <div className="notification-list">{items.length ? items.map((item) => <article className={`notification-item tone-${item.tone || "info"}`} key={item.id}>
               <strong>{item.title}</strong>
               <p>{item.body}</p>
               <small>{formatTelemetryTime(item.created_at)}</small>
             </article>) : <div className="empty-state compact-empty">اعلان جدیدی وجود ندارد.</div>}</div>
-            {items.length > 0 && <button type="button" className="secondary-btn" onClick={() => {
-              items.forEach(item => dismissImpact(item.impact ? item.id : serverKey(item)));
-              if (serverUnread) void Promise.resolve(onMarkNotificationsRead?.()).catch(() => {});
-            }}>باشه</button>}
           </section>}
         </div>
       </div>
