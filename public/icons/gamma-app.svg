@@ -1,8 +1,8 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1254 1254" role="img" aria-label="Gamma Tech Platform navigation circuit G icon">
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1024" height="1024" viewBox="0 0 1254 1254" role="img" aria-label="Gamma Tech Platform navigation circuit G icon">
 <title>Gamma Tech Platform — PWA icon</title>
 <defs>
-<radialGradient id="background" cx="49%" cy="43%" r="74%"><stop offset="0" stop-color="#12151E"/><stop offset="1" stop-color="#05060B"/></radialGradient>
-<linearGradient id="orange" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#FFAE1D"/><stop offset="0.6" stop-color="#FF8A00"/><stop offset="1" stop-color="#FF7400"/></linearGradient>
+  <radialGradient id="background" cx="49%" cy="43%" r="74%"><stop offset="0" stop-color="#12151E"/><stop offset="1" stop-color="#05060B"/></radialGradient>
+  <linearGradient id="orange" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#FFAE1D"/><stop offset="0.6" stop-color="#FF8A00"/><stop offset="1" stop-color="#FF7400"/></linearGradient>
 </defs>
 <rect x="3" y="3" width="1248" height="1248" rx="158" fill="url(#background)"/>
 <path fill="url(#orange)" fill-rule="evenodd" d="M635 593 L581 613 L520 644 L471 677 L439 708 L427 725 L420 739 L414 762 L414 776 L416 788 L419 793 L449 826 L434 793 L432 783 L432 763 L439 739 L454 714 L476 690 L515 659 L568 627 Z
