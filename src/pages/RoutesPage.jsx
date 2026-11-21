@@ -29,13 +29,6 @@ export default function RoutesPage({ now = Date.now(), geofence, routePoints = [
     <PageHeader eyebrow="ROUTES" title="نقشه و موقعیت‌ها" subtitle={`داده‌های ثبت‌شدهٔ دستگاه ${deviceCode || "—"}`} onBack={onBack}
       action={<StatusBadge tone={online ? "success" : "warning"}>{online ? "داده تازه" : "داده قدیمی"}</StatusBadge>} />
 
-    <section className="panel route-interval" dir="rtl">
-      <label htmlFor="route-interval">بازهٔ زمانی</label>
-      <select id="route-interval" value={interval} onChange={event => setInterval(Number(event.target.value))} aria-describedby="route-interval-coverage">
-        {HISTORY_INTERVALS.map(option => <option key={option.hours} value={option.hours}>{option.label}</option>)}
-      </select>
-      <p className="muted" id="route-interval-coverage">نتایج فقط نقاط دریافت‌شده در بازهٔ انتخابی را پوشش می‌دهند. در پاسخ‌های محدود به ۱۰۰ رکورد آخر، ممکن است همهٔ نقاط این بازه دریافت نشده باشند.</p>
-    </section>
     <section className="panel map-panel">
       <div className="map-wrap full-map">
         {lastPoint ? <>
@@ -52,12 +45,15 @@ export default function RoutesPage({ now = Date.now(), geofence, routePoints = [
       <button type="button" className="secondary-btn route-refresh" disabled={syncing} onClick={onSync}>
         <RefreshCcw size={16} className={syncing ? "spin" : ""} />{syncing ? "در حال به‌روزرسانی..." : "به‌روزرسانی موقعیت‌ها"}
       </button>
-    </section>
-
-    {geofence && <GeofenceEditor key={deviceCode} fence={geofence} deviceCode={deviceCode} lastPoint={allHistory[0]?.coordinates || routePoints.at(-1)} />}
-
-    <details className="panel route-history">
+    <details className="route-history">
       <summary><h3>نقاط ثبت‌شده</h3><span className="muted small-text">{history.length} مورد</span><ChevronDown className="route-history-chevron" size={20} aria-hidden="true" /></summary>
+      <div className="route-interval" dir="rtl">
+        <label htmlFor="route-interval">بازهٔ زمانی</label>
+        <select id="route-interval" value={interval} onChange={event => setInterval(Number(event.target.value))} aria-describedby="route-interval-coverage">
+          {HISTORY_INTERVALS.map(option => <option key={option.hours} value={option.hours}>{option.label}</option>)}
+        </select>
+        <p className="muted" id="route-interval-coverage">فیلتر روی نقاط دریافت‌شده اعمال می‌شود. ممکن است سرور فقط ۱۰۰ رکورد آخر را برگرداند.</p>
+      </div>
       <div className="route-list">
         {history.map((item) => <article className="route-row" key={`${item.id}-${item.recordedAt}-${item.coordinates.join(",")}`}>
           <div className="route-icon"><MapPinned size={18} /></div>
@@ -67,5 +63,7 @@ export default function RoutesPage({ now = Date.now(), geofence, routePoints = [
       </div>
       {!history.length && <div className="empty-state">{EMPTY_INTERVAL}</div>}
     </details>
+    </section>
+    {geofence && <GeofenceEditor key={deviceCode} fence={geofence} deviceCode={deviceCode} lastPoint={allHistory[0]?.coordinates || routePoints.at(-1)} />}
   </section>;
 }

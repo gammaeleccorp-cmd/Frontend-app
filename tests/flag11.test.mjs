@@ -40,11 +40,11 @@ test("header badge and crash details are visible inside the app", async () => {
   const { default: HomePage } = await vite.ssrLoadModule("/src/pages/HomePage.jsx");
   const { default: MpuPage } = await vite.ssrLoadModule("/src/pages/MpuPage.jsx");
   const crash = { id: "t1", type: "تصادف", level: "2.35 g", time: "امروز ۱۲:۲۹", speed: 42, latitude: 35.7, longitude: 51.4 };
-  const header = renderToStaticMarkup(createElement(Header, { product: "NEGAHBAN", notifications: { unread_count: 1, items: [] } }));
-  assert.match(header, /اعلان‌ها، 1 خوانده‌نشده/);
+  const impactEvents = [2.35, 3, 3.5, 4, 4.1].map((impactG, id) => ({ id, impactG }));
+  const header = renderToStaticMarkup(createElement(Header, { product: "NEGAHBAN", impactEvents }));
+  assert.match(header, /اعلان‌ها، 3 خوانده‌نشده/);
   const home = renderToStaticMarkup(createElement(HomePage, { product: "NEGAHBAN", now: Date.now(), onNavigate() {}, data: { vehicle: { deviceCode: "NG-0001" }, latestTelemetry: { device_status: 1 }, negahbanMetrics: [], mpuEvents: [crash], routeHistory: [] } }));
-  assert.match(home, /هشدار تصادف ثبت شد/);
-  assert.match(home, /2.35 g/);
+  assert.doesNotMatch(home, /crash-alert/);
   const events = renderToStaticMarkup(createElement(MpuPage, { events: [crash], onBack() {} }));
   assert.match(events, /تصادف ثبت‌شده/);
   assert.match(events, /google.com\/maps\?q=35.7,51.4/);

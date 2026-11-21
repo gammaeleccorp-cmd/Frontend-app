@@ -41,7 +41,7 @@ test('Routes renders each recorded timestamp beside its own exact Neshan link', 
     const older = { id: 1, recordedAt: '2026-11-16T08:00:00Z', coordinates: [35.70857123, 51.37728456], speed: 12 };
     const newer = { id: 2, recordedAt: '2026-11-16T09:30:00Z', coordinates: [36.12345678, 52.87654321], speed: 24 };
     const html = renderToStaticMarkup(createElement(RoutesPage, { now: Date.parse("2026-11-16T10:00:00Z"), routeHistory: [older, { id: 3, recordedAt: '2027-01-01', coordinates: [999, 51] }, newer] }));
-    assert.match(html, /<details class="panel route-history"><summary>/);
+    assert.match(html, /<details class="route-history"><summary>/);
     assert.doesNotMatch(html, /<details[^>]*\bopen/);
     assert.match(html, /2 مورد/);
     assert.match(html, /route-history-chevron/);

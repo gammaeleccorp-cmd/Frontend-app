@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { Flag } from 'lucide-react';
 import { divIcon } from 'leaflet';
-import { CircleMarker, Marker, Popup } from 'react-leaflet';
+import { CircleMarker, Marker, Popup, Tooltip } from 'react-leaflet';
 import RecordedPointPopup from './RecordedPointPopup';
 import { recentRecordedPoints as recordedRoutePoints } from '../utils/flag15.mjs';
 import { routeMarkers } from '../utils/routeMarkers.mjs';
@@ -22,6 +22,17 @@ function VehicleIcon({ heading }) {
   </svg>;
 }
 
+function PointDetails({ marker }) {
+  return <>
+    <Tooltip direction="top" className="route-hover-tooltip" opacity={1}>
+      <RecordedPointPopup marker={marker} />
+    </Tooltip>
+    <Popup maxWidth={240} minWidth={160}>
+      <RecordedPointPopup marker={marker} />
+    </Popup>
+  </>;
+}
+
 function RecordedMarker({ marker }) {
   const { element, icon } = useMemo(() => {
     const element = document.createElement('div');
@@ -38,9 +49,7 @@ function RecordedMarker({ marker }) {
       {marker.includesStart && <span className="route-start-dot" />}
     </span>, element)}
     <Marker position={marker.point.coordinates} icon={icon} title={marker.label} alt={marker.label} zIndexOffset={marker.kind === 'end' ? 200 : 100}>
-      <Popup maxWidth={240} minWidth={160}>
-        <RecordedPointPopup marker={marker} />
-      </Popup>
+      <PointDetails marker={marker} />
     </Marker>
   </>;
 }
@@ -49,7 +58,7 @@ export default function RouteMarkers({ history }) {
   const markers = routeMarkers(history);
   return <>
     {recordedRoutePoints(history, Infinity).map((point, index) => <CircleMarker className="route-recorded-point" key={`${point.id}-${index}`} center={point.coordinates} radius={7} pathOptions={{ color: '#fff', weight: 2, fillColor: '#ff6b1a', fillOpacity: 1 }}>
-      <Popup><RecordedPointPopup marker={{ label: 'نقطه ثبت‌شده', points: [point] }} /></Popup>
+      <PointDetails marker={{ label: 'نقطه ثبت‌شده', points: [point] }} />
     </CircleMarker>)}
     {markers.map(marker => <RecordedMarker key={marker.kind} marker={marker} />)}
   </>;

@@ -1,7 +1,6 @@
 import { recordedPosition, liveSpeed } from "../utils/flag15.mjs";
 import GeofenceCard from "../components/GeofenceCard";
 import {
-  AlertTriangle,
   Bluetooth,
   Car,
   Radio,
@@ -141,21 +140,11 @@ function NegahbanHome({ data, now, onNavigate }) {
   const location = position?.coordinates;
   const locationTime = position?.recordedAt;
   const device = data.vehicle || {};
-  const latestCrash = data.mpuEvents?.[0];
   const battery = data.negahbanMetrics.find((item) => item.icon === "battery")?.value;
 
   return (
     <>
       <DeviceOverview deviceCode={device.deviceCode} telemetry={data.latestTelemetry} now={now} onDetails={() => onNavigate(VIEWS.VEHICLE)} />
-
-      {latestCrash && <section className="crash-alert" role="alert">
-        <AlertTriangle size={24} aria-hidden="true" />
-        <div>
-          <strong>هشدار تصادف ثبت شد</strong>
-          <p>زمان: {latestCrash.time} · شدت ضربه: {latestCrash.level}{latestCrash.speed != null ? ` · سرعت: ${latestCrash.speed} km/h` : ""}</p>
-        </div>
-        <button type="button" className="secondary-btn" onClick={() => onNavigate(VIEWS.MPU)}>مشاهده جزئیات</button>
-      </section>}
 
       <section className="metrics negahban-metrics">
         <Speedometer value={liveSpeed(data.latestTelemetry, now)} fresh={liveSpeed(data.latestTelemetry, now) !== null} switchStatus={switchState(data.latestTelemetry, now)} battery={battery} />

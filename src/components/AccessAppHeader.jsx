@@ -4,10 +4,11 @@ import { useEffect, useRef, useState } from "react";
 import { PRODUCTS } from "../data/mockData";
 import { formatTelemetryTime } from "../utils/telemetry.mjs";
 
-export default function AccessAppHeader({ welcome, product, vehicle, availableProducts = [], onProductChange, online = false, notifications = { unread_count: 0, items: [] }, onMarkNotificationsRead }) {
+export default function AccessAppHeader({ welcome, product, vehicle, availableProducts = [], onProductChange, online = false, notifications = { unread_count: 0, items: [] }, impactEvents = [], onMarkNotificationsRead }) {
   const rahban = product === PRODUCTS.RAHBAN;
   const canSwitch = availableProducts.length > 1;
   const [open, setOpen] = useState(false);
+  const [dismissed, setDismissed] = useState({});
   const wrap = useRef(null);
   const bell = useRef(null);
   useEffect(() => {
@@ -18,13 +19,33 @@ export default function AccessAppHeader({ welcome, product, vehicle, availablePr
     document.addEventListener("keydown", escape);
     return () => { document.removeEventListener("pointerdown", outside); document.removeEventListener("keydown", escape); };
   }, [open]);
-  const items = notifications?.items || [];
-  const unread = Number(notifications?.unread_count) || 0;
+  const impactItems = impactEvents.filter(event => Number.isFinite(event.impactG) && event.impactG > 3 && event.id != null)
+    .map(event => ({
+      id: `gamma-impact:${vehicle?.deviceCode}:${event.id}`,
+      title: event.impactG > 4 ? "هشدار احتمال ضربه ترافیکی" : "هشدار احتمال رد موانع عمیق (چاله)",
+      body: `شدت ضربه: ${event.level}`,
+      created_at: event.recordedAt,
+      tone: "warning",
+      impact: true,
+    }))
+    .filter(item => {
+      if (dismissed[item.id]) return false;
+      try { return localStorage.getItem(item.id) !== "1"; } catch { return true; }
+    });
+  const serverItems = notifications?.items || [];
+  const legacyImpacts = serverItems.filter(item => item.title === "هشدار تصادف");
+  const items = [...impactItems, ...serverItems.filter(item => !legacyImpacts.includes(item))];
+  const serverUnread = Math.max(0, (Number(notifications?.unread_count) || 0) - legacyImpacts.filter(item => !item.read).length);
+  const unread = serverUnread + impactItems.length;
+  const dismissImpact = (id) => {
+    setDismissed(current => ({ ...current, [id]: true }));
+    try { localStorage.setItem(id, "1"); } catch { /* In-memory dismissal still applies. */ }
+  };
 
   const toggleNotifications = () => {
     const next = !open;
     setOpen(next);
-    if (next && unread) void Promise.resolve(onMarkNotificationsRead?.()).catch(() => {});
+    if (next && serverUnread) void Promise.resolve(onMarkNotificationsRead?.()).catch(() => {});
   };
 
   return (
@@ -50,6 +71,7 @@ export default function AccessAppHeader({ welcome, product, vehicle, availablePr
               <strong>{item.title}</strong>
               <p>{item.body}</p>
               <small>{formatTelemetryTime(item.created_at)}</small>
+              {item.impact && <button type="button" className="secondary-btn" onClick={() => dismissImpact(item.id)}>باشه</button>}
             </article>) : <div className="empty-state compact-empty">اعلان جدیدی وجود ندارد.</div>}</div>
           </section>}
         </div>

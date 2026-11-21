@@ -846,6 +846,9 @@ button:disabled { opacity: .55; cursor: not-allowed; }
 .route-record-details /* Keep popup chrome and its close control inside narrow map cards. */
 .full-map .leaflet-popup-content { max-width: calc(100cqw - 48px); }
 .route-point-popup { color: var(--text); }
+.full-map .leaflet-popup-content .route-point-popup,
+.full-map .route-hover-tooltip .route-point-popup { color: #202024; }
+.full-map .route-hover-tooltip { max-width: min(240px, calc(100cqw - 48px)); white-space: normal; }
 @media (max-width: 400px) {
   .negahban-metrics .geofence-card { grid-template-columns: auto minmax(0, 1fr); }
   .geofence-card > button { grid-column: 1 / -1; grid-row: auto; justify-self: center; }

@@ -207,6 +207,7 @@ function AppFrame({ data, setData }) {
         onProductChange={changeProduct}
         online={isTelemetryFresh(data.latestTelemetry, now)}
         notifications={data.notifications}
+        impactEvents={product === PRODUCTS.NEGAHBAN ? data.mpuEvents : undefined}
         onMarkNotificationsRead={async () => {
           await repo.markNotificationsRead();
           setData((current) => ({ ...current, notifications: { unread_count: 0, items: (current.notifications?.items || []).map((item) => ({ ...item, read: true })) } }));
