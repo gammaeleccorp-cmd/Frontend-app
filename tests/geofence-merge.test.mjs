@@ -11,7 +11,7 @@ test("merged dashboard retains ACC, crash details, inbox, and geofence API", asy
   const calls = [];
   let acc = 1;
   const crash = { id: 99, event: "crash", impact_g: 2.5, speed: 30, latitude: 35, longitude: 51, recorded_at: "2026-10-24T10:00:00Z" };
-  const notification = { id: 1, title: "هشدار تصادف", body: "ضربه ثبت شد", tone: "error", read: false, created_at: crash.recorded_at };
+  const notification = { id: 1, title: "هشدار محدوده", body: "خروج از محدوده ثبت شد", tone: "error", read: false, created_at: crash.recorded_at };
   const configured = { configured: true, is_active: true, position: "INSIDE", latitude: 35, longitude: 51, radius_m: 500, last_recorded_at: crash.recorded_at };
   globalThis.localStorage = { getItem: () => "test-token" };
   globalThis.fetch = async (url, init = {}) => {
@@ -48,8 +48,7 @@ test("merged dashboard retains ACC, crash details, inbox, and geofence API", asy
       assert.ok(pair.indexOf("وضعیت سوییچ") < pair.indexOf("محدوده جغرافیایی"));
       assert.match(pair, /داخل محدوده/);
       assert.ok(pair.includes(`>${label}</span>`));
-      assert.match(html, /هشدار تصادف ثبت شد/);
-      assert.match(html, /مشاهده جزئیات/);
+      assert.doesNotMatch(html, /crash-alert/);
       const header = renderToStaticMarkup(createElement(Header, { product: "NEGAHBAN", notifications: data.notifications }));
       assert.match(header, /notification-count/);
     }
