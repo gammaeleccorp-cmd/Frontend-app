@@ -1,10 +1,24 @@
 {
-  "name": "Gamma Vehicle Platform",
+  "name": "Gamma Tech Platform",
   "short_name": "Gamma",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#151517",
   "theme_color": "#151517",
   "lang": "fa",
-  "dir": "rtl"
+  "dir": "rtl",
+  "icons": [
+    {
+      "src": "/icons/gamma-app.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/gamma-apple-touch.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
 }
