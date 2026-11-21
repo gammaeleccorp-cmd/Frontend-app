@@ -21,6 +21,7 @@ const path = require('node:path');
     const errors = [], unexpected = [];
     let history = [];
     let paginated = false;
+    let delayedHours = null;
     const historyPages = [];
     page.on('pageerror', error => errors.push(error.message));
     await page.addInitScript(() => {
@@ -30,7 +31,8 @@ const path = require('node:path');
     const tile = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aX1sAAAAASUVORK5CYII=', 'base64');
     await page.route(/https:\/\/(.*\.)?tile\.openstreetmap\.org\//, route => route.fulfill({ contentType: 'image/png', body: tile }));
     await page.route('https://api.gamma-tech.ir/**', async route => {
-      const endpoint = new URL(route.request().url()).pathname;
+      const url = new URL(route.request().url());
+      const endpoint = url.pathname;
       assert.equal(route.request().method(), 'GET');
       let data;
       if (endpoint === '/api/v1/vehicles/') data = [];
@@ -39,10 +41,22 @@ const path = require('node:path');
       else if (endpoint.endsWith('/notifications/')) data = { items: [], unread_count: 0 };
       else if (endpoint.endsWith('/latest/')) data = null;
       else if (endpoint.endsWith('/history/')) {
-        const url = new URL(route.request().url());
         const number = Number(url.searchParams.get('page') || 1);
-        historyPages.push(number);
-        data = paginated ? { results: history.slice((number - 1) * 60, number * 60), next: number * 60 < history.length ? `${url.origin}${endpoint}?page=${number + 1}` : null } : history;
+        const start = Date.parse(url.searchParams.get('start'));
+        const end = Date.parse(url.searchParams.get('end'));
+        const ranged = Number.isFinite(start) || Number.isFinite(end);
+        const requestedHours = Number.isFinite(start) && Number.isFinite(end) ? Math.round((end - start) / 3600000) : null;
+        if (requestedHours === delayedHours) await new Promise(resolve => setTimeout(resolve, 250));
+        const selected = history.filter(record => {
+          const recorded = Date.parse(record.recorded_at);
+          return (!Number.isFinite(start) || recorded >= start) && (!Number.isFinite(end) || recorded <= end);
+        });
+        historyPages.push({ number, ranged, requestedHours });
+        if (paginated || ranged) {
+          const next = new URL(url);
+          next.searchParams.set('page', String(number + 1));
+          data = { results: selected.slice((number - 1) * 60, number * 60), next: number * 60 < selected.length ? next.toString() : null };
+        } else data = selected;
       }
       else if (endpoint.endsWith('/geofence/')) data = { configured: false, supports_polygon: true, position: 'UNKNOWN' };
       else { unexpected.push(endpoint); return route.abort(); }
@@ -120,7 +134,9 @@ const path = require('node:path');
       console.error({ errors, historyPages, text: await page.locator('body').innerText() });
       throw error;
     });
-    assert.deepEqual(historyPages, [1, 2, 3]);
+    await page.waitForFunction(() => document.querySelector('#route-interval-coverage')?.textContent.includes('151 نقطه'));
+    assert.deepEqual(historyPages.filter(item => !item.ranged).map(item => item.number), [1, 2, 3]);
+    assert.deepEqual(historyPages.filter(item => item.ranged).map(item => item.number), [1, 2, 3]);
     assert.equal(await page.locator('.route-recorded-point').count(), 151);
     await page.locator('.full-map .leaflet-container').scrollIntoViewIfNeeded();
     const recordedPoint = page.locator('.route-recorded-point').nth(50);
@@ -141,6 +157,48 @@ const path = require('node:path');
     }
     await page.screenshot({ path: path.join(shots, 'routes-all-pages.png'), fullPage: true, animations: 'disabled' });
     paginated = false;
+
+    // A longer range follows more than one page and includes points older than
+    // the shorter range; a delayed superseded response must not replace it.
+    history = [
+      ...Array.from({ length: 110 }, (_, index) => ({
+        ...first, id: `recent-${index}`, recorded_at: new Date(epoch - index * 4 * 60000).toISOString(),
+        latitude: first.latitude + index * 0.00001,
+      })),
+      ...Array.from({ length: 20 }, (_, index) => ({
+        ...first, id: `old-${index}`, recorded_at: new Date(epoch - (48 + index * 5) * 3600000).toISOString(),
+        latitude: first.latitude - (index + 1) * 0.0001,
+      })),
+    ];
+    await page.goto(`${base}/routes`);
+    await page.locator('.route-history > summary').click();
+    const rangeDropdown = page.getByRole('combobox', { name: 'بازهٔ زمانی', exact: true });
+    await rangeDropdown.selectOption('8');
+    await page.locator('#route-interval-coverage').getByText(/110 نقطه/).waitFor();
+    assert.equal(await page.locator('.route-row').count(), 110);
+    const oldestTime = history.at(-1).recorded_at;
+    assert.equal(await page.locator(`time[datetime="${oldestTime}"]`).count(), 0);
+    await rangeDropdown.selectOption('168');
+    await page.locator('#route-interval-coverage').getByText(/130 نقطه/).waitFor();
+    assert.ok(await page.locator(`time[datetime="${oldestTime}"]`).count() >= 1);
+
+    delayedHours = 168;
+    await rangeDropdown.selectOption('8');
+    await page.locator('#route-interval-coverage').getByText(/110 نقطه/).waitFor();
+    const delayedRequest = page.waitForRequest(request => {
+      const requested = new URL(request.url());
+      const start = Date.parse(requested.searchParams.get('start'));
+      const end = Date.parse(requested.searchParams.get('end'));
+      return Number.isFinite(start) && Number.isFinite(end) && Math.round((end - start) / 3600000) === 168;
+    });
+    await rangeDropdown.selectOption('168');
+    await delayedRequest;
+    await rangeDropdown.selectOption('8');
+    await page.waitForTimeout(400);
+    assert.equal(await page.locator('.route-row').count(), 110);
+    assert.equal(await page.locator(`time[datetime="${oldestTime}"]`).count(), 0);
+    delayedHours = null;
+
     for (const width of [320, 390, 1280]) {
       await page.setViewportSize({ width, height: 844 });
       history = [1, 8, 12, 24, 48, 168, 169].map((hours, id) => ({ ...first, id, recorded_at: new Date(epoch - hours * 3600000 + 5 * 60000).toISOString(), latitude: first.latitude + id * 0.001 }));
@@ -153,19 +211,22 @@ const path = require('node:path');
       assert.equal(await page.locator('.route-interval input,.route-interval button').count(), 0);
       assert.equal(await dropdown.evaluate(el => getComputedStyle(el).direction), 'rtl');
       assert.equal(await dropdown.evaluate(el => el.scrollWidth <= el.clientWidth && parseFloat(getComputedStyle(el).fontSize) >= 16), true);
+      await page.locator('#route-interval-coverage').getByText(/4 نقطه/).waitFor();
       assert.equal(await page.locator('.route-row').count(), 4);
       await dropdown.focus();
       await dropdown.press('ArrowDown');
       await dropdown.press('Enter');
       assert.equal(await dropdown.inputValue(), '48');
+      await page.locator('#route-interval-coverage').getByText(/5 نقطه/).waitFor();
       assert.equal(await page.locator('.route-row').count(), 5);
       for (const [value, count] of [['8', 2], ['12', 3], ['24', 4], ['48', 5], ['168', 6]]) {
         await dropdown.selectOption(value);
+        await page.locator('#route-interval-coverage').getByText(new RegExp(`^${count} نقطه`)).waitFor();
         assert.equal(await page.locator('.route-row').count(), count);
         assert.equal(await page.locator('.route-recorded-point').count(), count);
-        assert.match(await page.locator('#route-interval-coverage').innerText(), new RegExp(`^${count} از 7`));
+        assert.match(await page.locator('#route-interval-coverage').innerText(), new RegExp(`^${count} نقطه`));
       }
-      assert.match(await page.locator('#route-interval-coverage').innerText(), /۱۰۰ رکورد آخر/);
+      assert.match(await page.locator('#route-interval-coverage').innerText(), /از سرور دریافت شد/);
       await dropdown.selectOption('24');
       await page.locator('.full-map .leaflet-container').scrollIntoViewIfNeeded();
       await page.locator('.full-map .route-map-marker.end').hover();
@@ -187,6 +248,6 @@ const path = require('node:path');
     }
     assert.deepEqual(errors, []);
     assert.deepEqual(unexpected, []);
-    console.log('PASS: route markers at 320/390/1280; chronological order; heading/missing speed; single/overlapping positions; popups; original links and line; three pages/151 points; overlap list details; all five rolling intervals/default/keyboard/empty coverage at 320/390/1280');
+    console.log('PASS: route markers at 320/390/1280; chronological order; heading/missing speed; single/overlapping positions; popups; original links and line; ranged pagination over 100 points; longer range includes older points; stale response ignored; all five rolling intervals/default/keyboard/empty coverage at 320/390/1280');
   } finally { await browser.close(); }
 })().catch(error => { console.error(error); process.exitCode = 1; });
