@@ -156,3 +156,9 @@ test("device page: optional vehicle button and relay control without vehicle", a
   assert.match(withVehicle, /کنترل رله/, "relay stays available with a vehicle");
   assert.doesNotMatch(withVehicle, /VIN/i);
 });
+
+test("relay request displays the API denial reason and handles missing detail", () => {
+  const detail = "برای بازگرداندن رله از بلوتوث استفاده کنید.";
+  assert.equal(commandErrorMessage({ status: 400, payload: { detail } }), detail);
+  assert.equal(commandErrorMessage({ status: 400 }), "این فرمان برای دستگاه شما مجاز نیست.");
+});
