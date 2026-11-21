@@ -10,7 +10,7 @@ test("speedometer distinguishes zero, missing and stale data and bounds its need
     const { default: Speedometer } = await vite.ssrLoadModule("/src/components/Speedometer.jsx");
     const render = (value, fresh = false) => renderToStaticMarkup(createElement(Speedometer, { value, fresh }));
     assert.match(render("0", true), /<strong>0<\/strong>/);
-    assert.match(render("0", true), /داده تازه/);
+    assert.match(render("0", true), /سرعت به‌روز/);
     assert.match(render("0.72228"), /<strong>1<\/strong>/);
     assert.match(render("84.6"), /<strong>85<\/strong>/);
     assert.match(render("84.6"), /داده قدیمی/);

@@ -742,11 +742,6 @@ button:active:not(:disabled) { transform: translateY(1px); }
   .crash-alert button { grid-column: 1 / -1; width: 100%; }
 }
 
-/* Keep ACC and geofence together, including narrow screens. */
-.metrics.negahban-metrics.status-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-.status-metrics > .metric-card { min-width: 0; overflow-wrap: anywhere; }
-.status-metrics .geofence-card small { white-space: normal; }
-
 /* Flag 15: keep the header above all Leaflet panes. */
 .app-header { position: relative; z-index: 2000; overflow: visible; }
 /* The brand occupies its own full-width row above the reachable controls. */
@@ -759,12 +754,15 @@ button:active:not(:disabled) { transform: translateY(1px); }
 .negahban-device-page .page-heading-wrap > div { min-width: 0; }
 .negahban-device-page .page-header h2 { margin: 0; overflow-wrap: anywhere; }
 .negahban-device-page .icon-btn, .app-header .icon-btn { flex-shrink: 0; }
-.tracker-overview { align-items: flex-start; gap: 14px; }
-.tracker-overview .device-product-mark { width: 48px; height: 48px; border: 1px solid rgba(255,107,26,.2); background: rgba(255,107,26,.07); border-radius: 14px; }
-.device-code-badge { display: inline-block; max-width: 100%; padding: 6px 10px; border: 1px solid var(--line-2); background: var(--surface-3); border-radius: 8px; font-weight: 800; font-size: 18px; overflow-wrap: anywhere; unicode-bidi: isolate; }
-.device-freshness { margin-top: 10px; }
-.tracker-overview .status-badge { max-width: 100%; white-space: normal; line-height: 1.7; text-align: start; }
-.device-received { margin: 10px 0 0; font-size: 12px; line-height: 1.9; color: #b9bbc1; overflow-wrap: anywhere; }
+.tracker-overview { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 12px; text-align: center; }
+.tracker-overview .device-overview-main { flex: none; width: 100%; }
+.tracker-overview h2 { margin: 0; font-size: 18px; }
+.device-heading { display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 4px; }
+.tracker-overview .device-product-mark { width: 28px; height: 28px; border: 1px solid rgba(255,107,26,.2); background: rgba(255,107,26,.07); border-radius: 14px; }
+.device-code-badge { display: inline-block; max-width: 100%; padding: 4px 10px; border: 1px solid var(--line-2); background: var(--surface-3); border-radius: 8px; font-weight: 800; font-size: 16px; overflow-wrap: anywhere; unicode-bidi: isolate; }
+.device-freshness { margin-top: 6px; }
+.tracker-overview .status-badge { padding-block: 3px; max-width: 100%; white-space: normal; line-height: 1.7; text-align: center; }
+.device-received { margin: 4px 0 0; font-size: 12px; line-height: 1.9; color: #b9bbc1; overflow-wrap: anywhere; }
 .app-header-main > div:first-child { min-width: 0; overflow-wrap: anywhere; }
 .notification-panel { z-index: 2100; width: min(340px, calc(100vw - 32px)); max-height: min(65dvh, 520px); display: flex; flex-direction: column; overflow: hidden; inset-inline-end: 0; inset-inline-start: auto; }
 .notification-heading { flex: 0 0 auto; }
@@ -790,3 +788,13 @@ button:disabled { opacity: .55; cursor: not-allowed; }
 .route-history[open] > summary .route-history-chevron { transform: rotate(180deg); }
 .route-history[open] > .route-list { margin-top: 16px; }
 @media (prefers-reduced-motion: reduce) { .route-history-chevron { transition: none; } }
+
+/* Center the device title while retaining the back button at the RTL edge. */
+.negahban-device-page .page-header { display: block; margin-bottom: 12px; }
+.negahban-device-page .page-heading-wrap { position: relative; justify-content: center; min-height: 44px; padding-inline: 48px; text-align: center; }
+.negahban-device-page .page-heading-wrap > .icon-btn { position: absolute; inset-inline-start: 0; top: 50%; transform: translateY(-50%); }
+.speed-details { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 10px 24px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); font-size: 12px; }
+.switch-detail, .battery-detail { display: flex; align-items: center; justify-content: center; gap: 8px; color: var(--muted); }
+.switch-status { padding: 3px 10px; border: 1px solid #666970; border-radius: 999px; background: #19191c; color: #b6b8bd; }
+.switch-status.on { color: var(--green); border-color: rgba(61,220,132,.3); background: rgba(61,220,132,.04); }
+.battery-detail span { font-variant-numeric: tabular-nums; }

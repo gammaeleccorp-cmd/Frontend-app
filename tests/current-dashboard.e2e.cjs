@@ -73,8 +73,8 @@ const assert = require("node:assert/strict");
 
     await page.goto(`${process.env.E2E_BASE || "http://127.0.0.1:5178"}/home`);
 
-    await page.getByText("وضعیت ردیاب", { exact: true }).waitFor();
-    await page.getByText("دستگاه NG-0001", { exact: true }).waitFor();
+    await page.locator(".tracker-overview").waitFor();
+    await page.locator(".device-code-badge").waitFor();
     // Sample the existing fade at entrance, visible, and exit frames with a long RTL name.
     for (const width of [320,390]) {
       await page.setViewportSize({width,height:844});
@@ -120,7 +120,7 @@ const assert = require("node:assert/strict");
     await page.setViewportSize({width:390,height:844});
     await page.goto(`${process.env.E2E_BASE || "http://127.0.0.1:5178"}/add-device`);
     await page.waitForURL('**/home');
-    await page.getByText("وضعیت ردیاب", { exact: true }).waitFor();
+    await page.locator(".tracker-overview").waitFor();
     assert.equal(await page.locator('#device-code').count(),0);
     assert.equal(await page.locator('a[href*="neshan.org"]').count(),0);
     await page.goto(`${process.env.E2E_BASE || "http://127.0.0.1:5178"}/vehicle`);
@@ -134,7 +134,7 @@ const assert = require("node:assert/strict");
       assert.equal(await page.locator('.gamma-brand').getAttribute('dir'),'ltr');
       assert.equal(await page.locator('.device-code-badge').getAttribute('dir'),'ltr');
       assert.equal(await page.locator('.device-code-badge').innerText(),'NG-0001');
-      assert.equal(await page.locator('.tracker-overview .status-badge').innerText(),'داده تازه دریافت نشده');
+      assert.equal(await page.locator('.tracker-overview .status-badge').innerText(),'Offline');
       for (const selector of ['.gamma-brand','.gamma-brand-wordmark','.gamma-brand-subtitle','.device-code-badge','.tracker-overview .status-badge','.negahban-device-page h2']) {
         assert.equal(await page.locator(selector).evaluate(el=>el.scrollWidth<=el.clientWidth+1),true,`${selector} clips at ${width}`);
       }
@@ -158,7 +158,7 @@ const assert = require("node:assert/strict");
     }
     await page.setViewportSize({width:390,height:844});
     await page.goto(`${process.env.E2E_BASE || "http://127.0.0.1:5178"}/home`);
-    await page.getByText("وضعیت ردیاب", { exact: true }).waitFor();
+    await page.locator(".tracker-overview").waitFor();
 
     await page.locator(".geofence-card").waitFor();
     await page.locator(".geofence-card button").click();
