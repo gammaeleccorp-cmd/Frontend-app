@@ -34,9 +34,14 @@ export default function AccessAppHeader({ welcome, product, vehicle, availablePr
     });
   const serverItems = notifications?.items || [];
   const legacyImpacts = serverItems.filter(item => item.title === "هشدار تصادف");
-  const items = [...impactItems, ...serverItems.filter(item => !legacyImpacts.includes(item))];
+  const serverKey = item => `gamma-notification:${item.id}`;
+  const visibleServerItems = serverItems.filter(item => {
+    if (legacyImpacts.includes(item) || dismissed[serverKey(item)]) return false;
+    try { return localStorage.getItem(serverKey(item)) !== "1"; } catch { return true; }
+  });
+  const items = [...impactItems, ...visibleServerItems];
   const serverUnread = Math.max(0, (Number(notifications?.unread_count) || 0) - legacyImpacts.filter(item => !item.read).length);
-  const unread = serverUnread + impactItems.length;
+  const unread = Math.max(0, serverUnread - serverItems.filter(item => !item.read && !legacyImpacts.includes(item) && !visibleServerItems.includes(item)).length) + impactItems.length;
   const dismissImpact = (id) => {
     setDismissed(current => ({ ...current, [id]: true }));
     try { localStorage.setItem(id, "1"); } catch { /* In-memory dismissal still applies. */ }
@@ -71,8 +76,11 @@ export default function AccessAppHeader({ welcome, product, vehicle, availablePr
               <strong>{item.title}</strong>
               <p>{item.body}</p>
               <small>{formatTelemetryTime(item.created_at)}</small>
-              {item.impact && <button type="button" className="secondary-btn" onClick={() => dismissImpact(item.id)}>باشه</button>}
             </article>) : <div className="empty-state compact-empty">اعلان جدیدی وجود ندارد.</div>}</div>
+            {items.length > 0 && <button type="button" className="secondary-btn" onClick={() => {
+              items.forEach(item => dismissImpact(item.impact ? item.id : serverKey(item)));
+              if (serverUnread) void Promise.resolve(onMarkNotificationsRead?.()).catch(() => {});
+            }}>باشه</button>}
           </section>}
         </div>
       </div>

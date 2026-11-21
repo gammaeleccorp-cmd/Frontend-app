@@ -52,7 +52,7 @@ export default function RoutesPage({ now = Date.now(), geofence, routePoints = [
         <select id="route-interval" value={interval} onChange={event => setInterval(Number(event.target.value))} aria-describedby="route-interval-coverage">
           {HISTORY_INTERVALS.map(option => <option key={option.hours} value={option.hours}>{option.label}</option>)}
         </select>
-        <p className="muted" id="route-interval-coverage">فیلتر روی نقاط دریافت‌شده اعمال می‌شود. ممکن است سرور فقط ۱۰۰ رکورد آخر را برگرداند.</p>
+        <p className="muted" id="route-interval-coverage" role="status">{history.length} از {allHistory.length} نقطهٔ دریافت‌شده در این بازه. ممکن است سرور فقط ۱۰۰ رکورد آخر را برگرداند.</p>
       </div>
       <div className="route-list">
         {history.map((item) => <article className="route-row" key={`${item.id}-${item.recordedAt}-${item.coordinates.join(",")}`}>
