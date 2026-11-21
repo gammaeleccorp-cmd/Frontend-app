@@ -48,7 +48,7 @@ button, input { -webkit-tap-highlight-color: transparent; }
 .shell {
   width: min(100%, 980px);
   margin: 0 auto;
-  padding: 24px 18px 96px;
+  padding: 24px 18px calc(120px + env(safe-area-inset-bottom, 0px));
   min-height: 100vh;
 }
 .center { display: grid; place-items: center; }
@@ -524,7 +524,7 @@ button:active:not(:disabled) { transform: translateY(1px); }
 
 .bottom-nav {
   position: fixed;
-  bottom: 16px;
+  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
   left: 50%;
   transform: translateX(-50%);
   width: min(calc(100% - 24px), 570px);
@@ -793,11 +793,6 @@ button:disabled { opacity: .55; cursor: not-allowed; }
 .negahban-device-page .page-header { display: block; margin-bottom: 12px; }
 .negahban-device-page .page-heading-wrap { position: relative; justify-content: center; min-height: 44px; padding-inline: 48px; text-align: center; }
 .negahban-device-page .page-heading-wrap > .icon-btn { position: absolute; inset-inline-start: 0; top: 50%; transform: translateY(-50%); }
-.speed-details { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 10px 24px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); font-size: 12px; }
-.switch-detail, .battery-detail { display: flex; align-items: center; justify-content: center; gap: 8px; color: var(--muted); }
-.switch-status { padding: 3px 10px; border: 1px solid #666970; border-radius: 999px; background: #19191c; color: #b6b8bd; }
-.switch-status.on { color: var(--green); border-color: rgba(61,220,132,.3); background: rgba(61,220,132,.04); }
-.battery-detail span { font-variant-numeric: tabular-nums; }
 
 /* The 44px Leaflet hit target stays fixed; rotate only the car inside it. */
 .route-map-marker { display: grid; place-items: center; border: 2px solid #fff; border-radius: 50%; box-shadow: 0 2px 8px #0008; color: #151517; }
@@ -812,3 +807,37 @@ button:disabled { opacity: .55; cursor: not-allowed; }
 .route-popup-record { display: grid; gap: 2px; margin-top: 8px; }
 .route-point-popup small { display: block; margin-top: 8px; }
 .route-point-popup time { display: block; }
+
+/* Compact status blocks share the same readable footprint. */
+.tracker-overview { gap: 6px; max-width: 560px; margin-inline: auto; }
+.tracker-overview > .secondary-btn { padding-block: 8px; }
+.negahban-metrics { margin-block: 12px 16px; align-items: start; }
+.negahban-metrics .speed-card { padding: 16px; width: 100%; max-width: 560px; justify-self: center; }
+.negahban-metrics .speed-instrument { width: min(100%, 280px); margin-top: 8px; }
+.speed-details { border-top: 1px solid var(--line); display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 10px; padding-top: 10px; }
+.switch-detail, .battery-detail { display: grid; justify-items: center; align-content: center; gap: 6px; min-width: 0; padding: 12px 6px; border: 1px solid var(--line-2); border-radius: 14px; background: #19191c; color: #c3c5cb; text-align: center; font-size: 13px; }
+.switch-detail > svg, .battery-detail > svg { width: 52px; height: 52px; }
+.switch-detail.on > svg { color: var(--green); }
+.switch-detail.off > svg, .switch-detail.unknown > svg { color: #9b9ea6; }
+.battery-detail > svg { color: #c3c5cb; }
+.battery-detail > small { font-size: 13px; }
+.switch-status, .battery-detail > span { font-size: 16px; font-weight: 700; line-height: 1.7; }
+.switch-status { color: #b6b8bd; }
+.switch-status.on { color: var(--green); }
+.battery-detail > span { padding: 3px 0; font-variant-numeric: tabular-nums; }
+.negahban-metrics .geofence-card { width: 100%; max-width: 560px; justify-self: center; grid-column: 1 / -1; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 6px 12px; padding: 14px 16px; }
+.geofence-card .metric-icon { grid-row: 1 / 4; margin: 0; }
+.geofence-card > strong { grid-column: 2; font-size: 19px; margin: 0; }
+.geofence-card > small { grid-column: 2; color: #b9bbc1; }
+.geofence-card > button { grid-column: 3; grid-row: 1 / 4; }
+.route-interval { display: flex; align-items: end; flex-wrap: wrap; gap: 12px; }
+.route-interval label { display: grid; gap: 6px; flex: 1 1 200px; min-width: 0; }
+.route-interval input { width: 100%; min-width: 0; color-scheme: dark; }
+.route-interval p { width: 100%; margin: 0; font-size: 12px; line-height: 1.8; }
+.route-record-details summary { cursor: pointer; padding-block: 8px; min-height: 44px; color: #c3c5cb; }
+.route-record-details .route-point-popup { color: var(--text); }
+@media (max-width: 400px) {
+  .negahban-metrics .geofence-card { grid-template-columns: auto minmax(0, 1fr); }
+  .geofence-card > button { grid-column: 1 / -1; grid-row: auto; justify-self: center; }
+}
+.device-heading:has(h2) { display: grid; grid-template-columns: 28px minmax(0, 1fr) 28px; }

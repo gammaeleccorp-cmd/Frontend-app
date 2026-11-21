@@ -1,10 +1,26 @@
 import { useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { CarFront, Flag } from 'lucide-react';
+import { Flag } from 'lucide-react';
 import { divIcon } from 'leaflet';
-import { Marker, Popup } from 'react-leaflet';
+import { CircleMarker, Marker, Popup } from 'react-leaflet';
 import RecordedPointPopup from './RecordedPointPopup';
+import { recentRecordedPoints as recordedRoutePoints } from '../utils/flag15.mjs';
 import { routeMarkers } from '../utils/routeMarkers.mjs';
+
+function VehicleIcon({ heading }) {
+  return <svg className="route-vehicle-icon" width="28" height="34" viewBox="0 0 28 40" fill="none" style={heading === null ? undefined : { transform: `rotate(${heading}deg)` }}>
+    <rect x="1" y="8" width="4" height="8" rx="1.5" fill="#101216" />
+    <rect x="23" y="8" width="4" height="8" rx="1.5" fill="#101216" />
+    <rect x="1" y="27" width="4" height="8" rx="1.5" fill="#101216" />
+    <rect x="23" y="27" width="4" height="8" rx="1.5" fill="#101216" />
+    <rect x="4" y="1" width="20" height="38" rx="7" fill="#f5f6f8" stroke="#20252d" strokeWidth="1.5" />
+    <path d="M7 11 Q14 8 21 11 L19 17 H9Z" fill="#25475b" />
+    <path d="M9 26 H19 L21 31 Q14 34 7 31Z" fill="#25475b" />
+    <rect x="9" y="18" width="10" height="7" rx="2" fill="#b4bdc8" />
+    <path d="M6 5 H10 M18 5 H22" stroke="#ffcf65" strokeWidth="2" />
+    <path d="M6 35 H10 M18 35 H22" stroke="#e85555" strokeWidth="2" />
+  </svg>;
+}
 
 function RecordedMarker({ marker }) {
   const { element, icon } = useMemo(() => {
@@ -18,7 +34,7 @@ function RecordedMarker({ marker }) {
   }, [marker.kind, marker.includesStart]);
   return <>
     {createPortal(<span className="route-marker-symbol" aria-hidden="true">
-      {marker.kind === 'end' ? <CarFront size={25} style={marker.heading === null ? undefined : { transform: `rotate(${marker.heading}deg)` }} /> : <Flag size={23} />}
+      {marker.kind === 'end' ? <VehicleIcon heading={marker.heading} /> : <Flag size={23} />}
       {marker.includesStart && <span className="route-start-dot" />}
     </span>, element)}
     <Marker position={marker.point.coordinates} icon={icon} title={marker.label} alt={marker.label} zIndexOffset={marker.kind === 'end' ? 200 : 100}>
@@ -30,5 +46,11 @@ function RecordedMarker({ marker }) {
 }
 
 export default function RouteMarkers({ history }) {
-  return routeMarkers(history).map(marker => <RecordedMarker key={marker.kind} marker={marker} />);
+  const markers = routeMarkers(history);
+  return <>
+    {recordedRoutePoints(history, Infinity).map((point, index) => <CircleMarker className="route-recorded-point" key={`${point.id}-${index}`} center={point.coordinates} radius={7} pathOptions={{ color: '#fff', weight: 2, fillColor: '#ff6b1a', fillOpacity: 1 }}>
+      <Popup><RecordedPointPopup marker={{ label: 'نقطه ثبت‌شده', points: [point] }} /></Popup>
+    </CircleMarker>)}
+    {markers.map(marker => <RecordedMarker key={marker.kind} marker={marker} />)}
+  </>;
 }

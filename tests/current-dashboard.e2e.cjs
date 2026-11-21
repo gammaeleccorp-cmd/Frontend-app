@@ -165,7 +165,7 @@ const assert = require("node:assert/strict");
     await page.waitForURL("**/routes");
 
     const disclosure=page.locator('.route-history');
-    const summary=disclosure.locator('summary');
+    const summary=disclosure.locator(':scope > summary');
     const rows=page.locator('.route-row');
     assert.equal(await disclosure.getAttribute('open'),null);
     assert.equal(await rows.first().isVisible(),false);
@@ -177,7 +177,7 @@ const assert = require("node:assert/strict");
     assert.equal(await rows.first().isVisible(),false);
     await page.keyboard.press('Enter');
     await page.emulateMedia({reducedMotion:'reduce'});
-    assert.equal(await page.locator('.route-history-chevron').evaluate(el=>getComputedStyle(el).transitionDuration),'0s');
+    await page.waitForFunction(() => getComputedStyle(document.querySelector('.route-history-chevron')).transitionDuration.split(',').every(duration => Number.parseFloat(duration) <= 0.001));
     await page.emulateMedia({reducedMotion:'no-preference'});
     assert.equal(await rows.count(),2);
     assert.equal(await page.locator('a[href*="neshan.org"]').count(),2);
@@ -192,8 +192,8 @@ const assert = require("node:assert/strict");
     });
     for(let i=0;i<expected.length;i++) {
       const row=rows.nth(i), link=row.getByRole('link',{name:'مشاهده در نشان',exact:true});
-      assert.equal(await row.locator('time').getAttribute('datetime'),expected[i][0]);
-      assert.ok((await row.locator('time').innerText()).length>5);
+      assert.equal(await row.locator('.route-row-main > strong time').getAttribute('datetime'),expected[i][0]);
+      assert.ok((await row.locator('.route-row-main > strong time').innerText()).length>5);
       assert.equal(await link.getAttribute('href'),expected[i][1]);
       const popupPromise=context.waitForEvent('page');
       await link.click();
@@ -204,7 +204,7 @@ const assert = require("node:assert/strict");
     }
     assert.deepEqual(opened,expected.map(item=>item[1]));
     assert.equal(await page.locator('.full-map .leaflet-container').count(),1);
-    assert.equal(await page.locator('.full-map path.leaflet-interactive').count(),1);
+    assert.equal(await page.locator('.full-map path.leaflet-interactive').count(),3);
     assert.equal(await page.locator('.full-map .route-map-marker').count(),2);
 
     const routeMap=page.locator('.full-map .leaflet-container');

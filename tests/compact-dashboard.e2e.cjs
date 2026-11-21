@@ -6,7 +6,8 @@ const path = require('node:path');
 (async () => {
   const browser = await chromium.launch({ headless: true });
   try {
-    const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+    const page = await browser.newPage({ viewport: { width: 390, height: 844 }, reducedMotion: 'reduce' });
+    page.setDefaultTimeout(15000);
     const errors = [], unexpected = [];
     const epoch = Date.parse('2026-11-21T10:00:00Z');
     const stamp = new Date(epoch).toISOString();
@@ -49,8 +50,15 @@ const path = require('node:path');
         sample = { speed: 45, recorded_at: stamp, received_at: stamp, ...fields };
         await page.goto(`${base}/home`);
         await page.locator('.switch-status').waitFor();
+        await page.clock.runFor(500);
         assert.equal(await page.locator('.switch-status').innerText(), state);
         assert.equal(await page.locator('.battery-detail span').innerText(), voltage);
+        const blocks = await page.locator('.switch-detail,.battery-detail').evaluateAll(elements => elements.map(el => ({ width: el.getBoundingClientRect().width, height: el.getBoundingClientRect().height })));
+        assert.ok(Math.abs(blocks[0].width - blocks[1].width) < 1);
+        assert.ok(Math.abs(blocks[0].height - blocks[1].height) < 1);
+        const power = await page.locator('.switch-detail > svg').boundingBox();
+        assert.ok(power.width >= 48 && power.width <= 56);
+        assert.equal(await page.locator('.switch-detail > svg').evaluate(el => getComputedStyle(el).color), name === 'on' ? 'rgb(61, 220, 132)' : 'rgb(155, 158, 166)');
         assert.equal(await page.locator('.tracker-overview .status-badge').innerText(), online);
         if (name === 'missing') assert.match(await page.locator('.device-received').innerText(), /ثبت نشده/);
         const switchIndicator = page.locator('.switch-status');
@@ -68,17 +76,23 @@ const path = require('node:path');
           });
           assert.equal(centered, true, `${selector} at ${width}`);
         }
-        if (['on', 'off', 'missing'].includes(name)) await page.screenshot({ path: path.join(shots, `home-${width}-${name}.png`), fullPage: true });
+        await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+        const nav = await page.locator('.bottom-nav').boundingBox();
+        const end = await page.locator('.device-help').boundingBox();
+        assert.ok(end.y + end.height < nav.y, `bottom content overlaps navigation at ${width}`);
+        await page.evaluate(() => window.scrollTo(0, 0));
+        if (['on', 'off', 'missing'].includes(name)) await page.screenshot({ path: path.join(shots, `home-${width}-${name}.png`), fullPage: true, animations: 'disabled' });
       }
       await page.getByRole('button', { name: 'اطلاعات دستگاه', exact: true }).click();
       await page.waitForURL('**/vehicle');
+      await page.clock.runFor(500);
       assert.equal(await page.locator('.device-received').innerText(), 'آخرین دریافت: ثبت نشده');
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
       const overview = await page.locator('.tracker-overview').boundingBox();
       assert.ok(overview.height < 200, `overview height at ${width}: ${overview.height}`);
       const heading = await page.locator('.page-header h2').boundingBox();
       assert.ok(Math.abs(heading.x + heading.width / 2 - overview.x - overview.width / 2) < 2);
-      await page.screenshot({ path: path.join(shots, `device-${width}.png`), fullPage: true });
+      await page.screenshot({ path: path.join(shots, `device-${width}.png`), fullPage: true, animations: 'disabled' });
     }
     // Advance the real application timer without reloading, while API polling
     // continues to return the same sample. Check both connection and ACC expiry.

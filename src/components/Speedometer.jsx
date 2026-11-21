@@ -1,4 +1,4 @@
-import { Battery } from "lucide-react";
+import { Battery, Power } from "lucide-react";
 
 const MAX_SPEED = 240;
 const ARC = "M 64.74 199 A 110 110 0 1 1 255.26 199";
@@ -44,8 +44,8 @@ export default function Speedometer({ value, fresh = false, switchStatus = "unkn
       </div>
       <p className="speed-caption">آخرین سرعت ثبت‌شده</p>
       <div className="speed-details">
-        <div className="switch-detail"><span>وضعیت سوییچ</span><span className={`switch-status ${switchStatus}`} role="status">{switchStatus === "on" ? "روشن" : switchStatus === "off" ? "خاموش" : "نامشخص"}</span></div>
-        <div className="battery-detail" aria-label="ولتاژ باتری"><Battery size={18} aria-hidden="true" /><span dir={hasBattery ? "ltr" : "rtl"}>{hasBattery ? `${voltage.toFixed(2)} V` : "ثبت نشده"}</span></div>
+        <div className={`switch-detail ${switchStatus}`}><Power size={52} aria-hidden="true" /><span>وضعیت سوییچ</span><span className={`switch-status ${switchStatus}`} role="status">{switchStatus === "on" ? "روشن" : switchStatus === "off" ? "خاموش" : "نامشخص"}</span></div>
+        <div className="battery-detail" aria-label="ولتاژ باتری"><Battery size={52} aria-hidden="true" /><small>ولتاژ باتری</small><span dir={hasBattery ? "ltr" : "rtl"}>{hasBattery ? `${voltage.toFixed(2)} V` : "ثبت نشده"}</span></div>
       </div>
     </article>
   );

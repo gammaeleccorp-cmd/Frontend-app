@@ -54,6 +54,10 @@ test('Routes renders each recorded timestamp beside its own exact Neshan link', 
     }
     assert.equal((html.match(/neshan.org/g) || []).length, 2);
     assert.doesNotMatch(html, /باز کردن آخرین موقعیت/);
+    const many = Array.from({ length: 151 }, (_, id) => ({ ...older, id }));
+    const full = renderToStaticMarkup(createElement(RoutesPage, { routeHistory: many }));
+    assert.equal((full.match(/class="route-row"/g) || []).length, 151);
+    assert.match(full, /151 مورد/);
     const empty = renderToStaticMarkup(createElement(RoutesPage, {}));
     assert.match(empty, /هنوز موقعیتی در تاریخچه ثبت نشده است/);
     assert.doesNotMatch(empty, /neshan.org/);
@@ -65,6 +69,8 @@ test('Routes renders each recorded timestamp beside its own exact Neshan link', 
         for (const point of marker.points) {
           assert.ok(popup.includes(`<time dateTime="${point.recordedAt}">${formatTelemetryTime(point.recordedAt)}</time>`));
           assert.ok(popup.includes(point.speed == null ? 'ثبت نشده' : `${point.speed} km/h`));
+          assert.ok(popup.includes(String(point.coordinates[0])));
+          assert.ok(popup.includes(String(point.coordinates[1])));
         }
         if (marker.includesStart) assert.match(popup, /شروع و پایان در یک موقعیت/);
       }

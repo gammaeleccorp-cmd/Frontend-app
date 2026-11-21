@@ -1,3 +1,5 @@
+import { paginatedHistory } from "../utils/paginatedHistory.mjs";
+import { runtime } from "../config/runtime";
 import { apiRequest } from "./client";
 import { endpoints } from "../config/endpoints";
 
@@ -33,7 +35,7 @@ export async function activateDevice(payload) {
 }
 
 export async function getTelemetryHistory(vehicleId) {
-  return unwrapList(await apiRequest(endpoints.telemetry.history(vehicleId)));
+  return paginatedHistory(endpoints.telemetry.history(vehicleId), apiRequest, runtime.apiBaseUrl);
 }
 
 export async function getLatestTelemetry(vehicleId) {
@@ -41,9 +43,7 @@ export async function getLatestTelemetry(vehicleId) {
 }
 
 export async function getDeviceTelemetryHistory(deviceCode) {
-  return unwrapList(
-    await apiRequest(endpoints.telemetry.deviceHistory(deviceCode))
-  );
+  return paginatedHistory(endpoints.telemetry.deviceHistory(deviceCode), apiRequest, runtime.apiBaseUrl);
 }
 
 export async function getLatestDeviceTelemetry(deviceCode) {
