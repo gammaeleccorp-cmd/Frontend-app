@@ -48,7 +48,7 @@ button, input { -webkit-tap-highlight-color: transparent; }
 .shell {
   width: min(100%, 980px);
   margin: 0 auto;
-  padding: 24px 18px 96px;
+  padding: 24px 18px calc(120px + env(safe-area-inset-bottom, 0px));
   min-height: 100vh;
 }
 .center { display: grid; place-items: center; }
@@ -216,8 +216,17 @@ button:active:not(:disabled) { transform: translateY(1px); }
 .app-shell {
   width: min(100%, 1160px);
   margin: 0 auto;
-  padding: 26px 18px 112px;
-  min-height: 100vh;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.app-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-gutter: stable both-edges;
+  padding: 26px 18px 16px;
 }
 .content-shell { animation: page-in 180ms ease; }
 @keyframes page-in { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: translateY(0); } }
@@ -494,7 +503,7 @@ button:active:not(:disabled) { transform: translateY(1px); }
 @keyframes spin { to { transform: rotate(360deg); } }
 
 .map-wrap { height: 360px; border-radius: 16px; overflow: hidden; border: 1px solid var(--line); }
-.full-map { height: 420px; }
+.full-map { height: 420px; container-type: inline-size; }
 .leaflet-container { width: 100%; height: 100%; background: #202226; }
 .route-summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 12px; }
 .route-summary-item { background: var(--surface-3); border: 1px solid var(--line); border-radius: 13px; padding: 12px; }
@@ -523,10 +532,8 @@ button:active:not(:disabled) { transform: translateY(1px); }
 .setting-row div:nth-child(2) span { margin-top: 4px; font-size: 12px; }
 
 .bottom-nav {
-  position: fixed;
-  bottom: 16px;
-  left: 50%;
-  transform: translateX(-50%);
+  flex-shrink: 0;
+  margin: 0 auto calc(16px + env(safe-area-inset-bottom, 0px));
   width: min(calc(100% - 24px), 570px);
   padding: 8px;
   display: grid;
@@ -569,7 +576,7 @@ button:active:not(:disabled) { transform: translateY(1px); }
 }
 
 @media (max-width: 520px) {
-  .shell, .app-shell { padding-left: 14px; padding-right: 14px; }
+  .shell, .app-scroll { padding-left: 14px; padding-right: 14px; }
   .auth-card { padding: 22px; border-radius: 21px; }
   .brand-logo-slot { width: 88px; height: 88px; }
   .brand-logo { width: 88px; height: 88px; }
@@ -742,11 +749,6 @@ button:active:not(:disabled) { transform: translateY(1px); }
   .crash-alert button { grid-column: 1 / -1; width: 100%; }
 }
 
-/* Keep ACC and geofence together, including narrow screens. */
-.metrics.negahban-metrics.status-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-.status-metrics > .metric-card { min-width: 0; overflow-wrap: anywhere; }
-.status-metrics .geofence-card small { white-space: normal; }
-
 /* Flag 15: keep the header above all Leaflet panes. */
 .app-header { position: relative; z-index: 2000; overflow: visible; }
 /* The brand occupies its own full-width row above the reachable controls. */
@@ -759,12 +761,15 @@ button:active:not(:disabled) { transform: translateY(1px); }
 .negahban-device-page .page-heading-wrap > div { min-width: 0; }
 .negahban-device-page .page-header h2 { margin: 0; overflow-wrap: anywhere; }
 .negahban-device-page .icon-btn, .app-header .icon-btn { flex-shrink: 0; }
-.tracker-overview { align-items: flex-start; gap: 14px; }
-.tracker-overview .device-product-mark { width: 48px; height: 48px; border: 1px solid rgba(255,107,26,.2); background: rgba(255,107,26,.07); border-radius: 14px; }
-.device-code-badge { display: inline-block; max-width: 100%; padding: 6px 10px; border: 1px solid var(--line-2); background: var(--surface-3); border-radius: 8px; font-weight: 800; font-size: 18px; overflow-wrap: anywhere; unicode-bidi: isolate; }
-.device-freshness { margin-top: 10px; }
-.tracker-overview .status-badge { max-width: 100%; white-space: normal; line-height: 1.7; text-align: start; }
-.device-received { margin: 10px 0 0; font-size: 12px; line-height: 1.9; color: #b9bbc1; overflow-wrap: anywhere; }
+.tracker-overview { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 18px; text-align: center; }
+.tracker-overview .device-overview-main { flex: none; width: 100%; }
+.tracker-overview h2 { margin: 0; font-size: 18px; }
+.device-heading { display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 4px; }
+.tracker-overview .device-product-mark { width: 28px; height: 28px; border: 1px solid rgba(255,107,26,.2); background: rgba(255,107,26,.07); border-radius: 14px; }
+.device-code-badge { display: inline-block; max-width: 100%; padding: 4px 10px; border: 1px solid var(--line-2); background: var(--surface-3); border-radius: 8px; font-weight: 800; font-size: 16px; overflow-wrap: anywhere; unicode-bidi: isolate; }
+.device-freshness { margin-top: 6px; }
+.tracker-overview .status-badge { padding-block: 3px; max-width: 100%; white-space: normal; line-height: 1.7; text-align: center; }
+.device-received { margin: 4px 0 0; font-size: 12px; line-height: 1.9; color: #b9bbc1; overflow-wrap: anywhere; }
 .app-header-main > div:first-child { min-width: 0; overflow-wrap: anywhere; }
 .notification-panel { z-index: 2100; width: min(340px, calc(100vw - 32px)); max-height: min(65dvh, 520px); display: flex; flex-direction: column; overflow: hidden; inset-inline-end: 0; inset-inline-start: auto; }
 .notification-heading { flex: 0 0 auto; }
@@ -790,3 +795,59 @@ button:disabled { opacity: .55; cursor: not-allowed; }
 .route-history[open] > summary .route-history-chevron { transform: rotate(180deg); }
 .route-history[open] > .route-list { margin-top: 16px; }
 @media (prefers-reduced-motion: reduce) { .route-history-chevron { transition: none; } }
+
+/* Center the device title while retaining the back button at the RTL edge. */
+.negahban-device-page .page-header { display: block; margin-bottom: 12px; }
+.negahban-device-page .page-heading-wrap { position: relative; justify-content: center; min-height: 44px; padding-inline: 48px; text-align: center; }
+.negahban-device-page .page-heading-wrap > .icon-btn { position: absolute; inset-inline-start: 0; top: 50%; transform: translateY(-50%); }
+
+/* The 44px Leaflet hit target stays fixed; rotate only the car inside it. */
+.route-map-marker { display: grid; place-items: center; border: 2px solid #fff; border-radius: 50%; box-shadow: 0 2px 8px #0008; color: #151517; }
+.route-map-marker.start { background: var(--green); }
+.route-map-marker.end { background: var(--orange); }
+.route-map-marker.includes-start { border-color: var(--green); box-shadow: 0 0 0 2px #fff, 0 2px 8px #0008; }
+.route-map-marker:focus-visible { outline: 3px solid #fff; outline-offset: 4px; }
+.route-marker-symbol { position: relative; display: grid; place-items: center; width: 40px; height: 40px; }
+.route-marker-symbol svg { display: block; transform-origin: center; }
+.route-start-dot { position: absolute; inset-inline-end: 0; bottom: 0; width: 10px; height: 10px; border-radius: 50%; background: var(--green); border: 1px solid #151517; }
+/* Keep popup chrome and its close control inside narrow map cards. */
+.full-map .leaflet-popup-content { max-width: calc(100cqw - 48px); }
+.route-point-popup { color: #202024; text-align: right; font-family: inherit; font-size: 12px; line-height: 1.8; overflow-wrap: anywhere; }
+.route-popup-record { display: grid; gap: 2px; margin-top: 8px; }
+.route-point-popup small { display: block; margin-top: 8px; }
+.route-point-popup time { display: block; }
+
+/* Compact status blocks share the same readable footprint. */
+.tracker-overview > .secondary-btn { padding-block: 8px; }
+.negahban-metrics { margin-block: 0 16px; gap: 16px; align-items: start; }
+.negahban-metrics .speed-card { padding: 18px; border-radius: 20px; }
+.negahban-metrics .speed-instrument { width: min(100%, 280px); margin-top: 8px; }
+.speed-details { border-top: 1px solid var(--line); display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 10px; padding-top: 10px; }
+.switch-detail, .battery-detail { display: grid; justify-items: center; align-content: center; gap: 6px; min-width: 0; padding: 12px 6px; border: 1px solid var(--line-2); border-radius: 14px; background: #19191c; color: #c3c5cb; text-align: center; font-size: 13px; }
+.switch-detail > svg, .battery-detail > svg { width: 52px; height: 52px; }
+.switch-detail.on > svg { color: var(--green); }
+.switch-detail.off > svg, .switch-detail.unknown > svg { color: #9b9ea6; }
+.battery-detail > svg { color: #c3c5cb; }
+.battery-detail > small { font-size: 13px; }
+.switch-status, .battery-detail > span { font-size: 16px; font-weight: 700; line-height: 1.7; }
+.switch-status { color: #b6b8bd; }
+.switch-status.on { color: var(--green); }
+.battery-detail > span { padding: 3px 0; font-variant-numeric: tabular-nums; }
+.negahban-metrics .geofence-card { grid-column: 1 / -1; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 6px 12px; padding: 18px; border-radius: 20px; }
+.geofence-card .metric-icon { grid-row: 1 / 4; margin: 0; }
+.geofence-card > strong { grid-column: 2; font-size: 19px; margin: 0; }
+.geofence-card > small { grid-column: 2; color: #b9bbc1; }
+.geofence-card > button { grid-column: 3; grid-row: 1 / 4; }
+.route-interval { display: grid; gap: 10px; }
+.route-interval label { margin: 0; font-weight: 700; }
+.route-interval select { min-width: 0; min-height: 48px; font: inherit; color-scheme: dark; direction: rtl; }
+.route-interval p { width: 100%; margin: 0; font-size: 12px; line-height: 1.8; }
+.route-record-details summary { cursor: pointer; padding-block: 8px; min-height: 44px; color: #c3c5cb; }
+.route-record-details /* Keep popup chrome and its close control inside narrow map cards. */
+.full-map .leaflet-popup-content { max-width: calc(100cqw - 48px); }
+.route-point-popup { color: var(--text); }
+@media (max-width: 400px) {
+  .negahban-metrics .geofence-card { grid-template-columns: auto minmax(0, 1fr); }
+  .geofence-card > button { grid-column: 1 / -1; grid-row: auto; justify-self: center; }
+}
+.device-heading:has(h2) { display: grid; grid-template-columns: 28px minmax(0, 1fr) 28px; }

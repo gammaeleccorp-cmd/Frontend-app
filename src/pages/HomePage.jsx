@@ -4,7 +4,6 @@ import {
   AlertTriangle,
   Bluetooth,
   Car,
-  Navigation,
   Radio,
   RefreshCcw,
   Route,
@@ -13,6 +12,8 @@ import {
 } from "lucide-react";
 import MetricCard from "../components/MetricCard";
 import Speedometer from "../components/Speedometer";
+import DeviceOverview from "../components/DeviceOverview";
+import { switchState } from "../utils/telemetry.mjs";
 import StatusBadge from "../components/StatusBadge";
 import GammaStatus from "../components/motion/GammaStatus";
 import { PRODUCTS, VIEWS } from "../data/mockData";
@@ -135,25 +136,17 @@ function LuminenHome({ data, onNavigate, onDtcOpen }) {
 }
 
 function NegahbanHome({ data, now, onNavigate }) {
-  const online = isTelemetryFresh(data.latestTelemetry, now);
-  const latestTime = formatTelemetryTime(data.latestTelemetry?.received_at || data.latestTelemetry?.recorded_at);
   const locationFresh = isTelemetryFresh({ recorded_at: data.latestTelemetry?.recorded_at }, now) && !!coordinates(data.latestTelemetry);
   const position = recordedPosition(data);
   const location = position?.coordinates;
   const locationTime = position?.recordedAt;
   const device = data.vehicle || {};
   const latestCrash = data.mpuEvents?.[0];
-  const accMetric = data.negahbanMetrics.find((item) => item.icon === "power") || { label: "وضعیت ACC", value: "نامشخص", unit: "", icon: "power" };
+  const battery = data.negahbanMetrics.find((item) => item.icon === "battery")?.value;
 
   return (
     <>
-      <StatusHero
-        icon={<Navigation size={42} />}
-        label="وضعیت ردیاب"
-        title={online ? "داده تازه از دستگاه" : "داده تازه دریافت نشده"}
-        subtitle={`دستگاه ${device.deviceCode || "—"} · آخرین دریافت: ${latestTime}`}
-        warning={!online}
-      />
+      <DeviceOverview deviceCode={device.deviceCode} telemetry={data.latestTelemetry} now={now} onDetails={() => onNavigate(VIEWS.VEHICLE)} />
 
       {latestCrash && <section className="crash-alert" role="alert">
         <AlertTriangle size={24} aria-hidden="true" />
@@ -165,11 +158,8 @@ function NegahbanHome({ data, now, onNavigate }) {
       </section>}
 
       <section className="metrics negahban-metrics">
-        <Speedometer value={liveSpeed(data.latestTelemetry, now)} fresh={liveSpeed(data.latestTelemetry, now) !== null} />
-        {data.negahbanMetrics.filter(item => item.icon !== "power" && item.unit !== "km/h").map(item => <MetricCard key={item.label} item={item} />)}
-      </section>
-      <section className="metrics negahban-metrics status-metrics">
-        <MetricCard item={accMetric} />
+        <Speedometer value={liveSpeed(data.latestTelemetry, now)} fresh={liveSpeed(data.latestTelemetry, now) !== null} switchStatus={switchState(data.latestTelemetry, now)} battery={battery} />
+        {data.negahbanMetrics.filter(item => item.icon !== "power" && item.icon !== "battery" && item.unit !== "km/h").map(item => <MetricCard key={item.label} item={item} />)}
         <GeofenceCard geofence={data.geofence?.value} loading={data.geofence?.loading} error={data.geofence?.error} onOpen={() => onNavigate(VIEWS.ROUTES)} />
       </section>
       {!data.negahbanMetrics.length && <div className="empty-state">هنوز دادهٔ اندازه‌گیری از دستگاه دریافت نشده است.</div>}
@@ -208,14 +198,7 @@ function NegahbanHome({ data, now, onNavigate }) {
         </button>
       </section>
 
-      <section className="two-column">
-        <ActionCard
-          icon={<Radio />}
-          title="دستگاه نگهبان"
-          text={`کد ${device.deviceCode || "—"} · آخرین دریافت: ${formatTelemetryTime(data.latestTelemetry?.received_at || device.lastSeen)}`}
-          action="اطلاعات دستگاه"
-          onClick={() => onNavigate(VIEWS.VEHICLE)}
-        />
+      <section>
         <ActionCard
           icon={<Route />}
           title="نقاط ثبت‌شده"

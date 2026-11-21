@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { isTelemetryFresh, normalizeTelemetryHistory } from "../src/utils/telemetry.mjs";
+import { isTelemetryFresh, normalizeTelemetryHistory, switchState } from "../src/utils/telemetry.mjs";
 import { isoToJalali, jalaliToIso } from "../src/utils/jalali.mjs";
 
 test("an old online flag cannot make stale telemetry live", () => {
@@ -27,4 +27,19 @@ test("Jalali date round trip rejects invalid dates", () => {
   assert.equal(jalaliToIso("۱۴۰۲/۰۱/۰۱"), "2023-03-21");
   assert.equal(isoToJalali("2023-03-21"), "1402/01/01");
   assert.equal(jalaliToIso("1402/13/01"), "");
+});
+
+test("switch status expires with recorded state and cannot be revived by delayed contact", () => {
+  const now = Date.parse("2026-11-21T10:00:00Z");
+  const stamp = new Date(now).toISOString();
+  for (const [state, expected] of [[1, "on"], [0, "off"], [null, "unknown"], [undefined, "unknown"]]) {
+    const sample = { recorded_at: stamp, received_at: stamp, device_status: state };
+    assert.equal(switchState(sample, now), expected);
+    assert.equal(isTelemetryFresh(sample, now + 300000), true);
+    assert.equal(isTelemetryFresh(sample, now + 300001), false);
+    assert.equal(switchState(sample, now + 300001), "unknown");
+  }
+  assert.equal(switchState({ received_at: stamp, recorded_at: new Date(now - 360000).toISOString(), device_status: 1 }, now), "unknown");
+  assert.equal(switchState({ received_at: stamp, device_status: 1 }, now), "unknown");
+  assert.equal(switchState(null, now), "unknown");
 });

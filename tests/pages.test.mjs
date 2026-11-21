@@ -21,7 +21,7 @@ test("Negahban pages render without a vehicle or fresh telemetry", async () => {
     };
     const home = renderToStaticMarkup(createElement(HomePage, { product: "NEGAHBAN", data, now: Date.parse("2026-10-07T10:00:00Z"), onNavigate() {} }));
     assert.match(home, /NG-0001/);
-    assert.match(home, /داده تازه دریافت نشده/);
+    assert.match(home, /Offline/);
     assert.match(home, /class="speed-card"/);
     assert.match(home, /سرعت دریافت نشده/);
     assert.match(home, /مشاهده نقشه و مسیرها/);
@@ -32,18 +32,13 @@ test("Negahban pages render without a vehicle or fresh telemetry", async () => {
 
     assert.equal((vehicle.match(/<h2>دستگاه نگهبان<\/h2>/g) || []).length, 1);
     assert.doesNotMatch(vehicle, /DEVICE|NEGAHBAN TRACKER|اطلاعات ثبت‌شده و وضعیت ارتباط/);
-    assert.match(vehicle, /class="device-code-badge mono" dir="ltr"[^>]*>NG-0001/);
-    assert.match(vehicle, /داده تازه دریافت نشده/);
-    assert.doesNotMatch(vehicle, /class="device-received"/);
-    const receivedAt = "2026-10-07T10:00:00Z";
-    for (const [now, expected] of [["2026-10-07T10:01:00Z", "داده تازه"], ["2026-10-07T10:06:00Z", "داده تازه دریافت نشده"]]) {
-      const header = renderToStaticMarkup(createElement(VehiclePage, { product: "NEGAHBAN", data: { ...data, latestTelemetry: { received_at: receivedAt } }, now: Date.parse(now), onBack() {} }));
-      assert.ok(header.includes(`>${expected}</span>`));
-      assert.ok(header.includes(`<time dateTime="${receivedAt}">`));
-    }
+    assert.doesNotMatch(vehicle, /tracker-overview|device-code-badge|device-received|Online|Offline/);
+    assert.match(vehicle, /کد عمومی دستگاه/);
+    assert.match(vehicle, /آخرین دریافت/);
+    assert.match(vehicle, /وضعیت GNSS/);
     const missing = renderToStaticMarkup(createElement(VehiclePage, { product: "NEGAHBAN", data: { vehicle: {}, latestTelemetry: null }, onBack() {} }));
-    assert.match(missing, /کد دستگاه ثبت نشده/);
-    assert.match(missing, /داده تازه دریافت نشده/);
+    assert.doesNotMatch(missing, /tracker-overview/);
+    assert.match(missing, /ثبت خودرو اختیاری است/);
 
     const profile = renderToStaticMarkup(createElement(ProfilePage, { user: { firstName: "آزمایش", mobile: "09120000000", birthDate: "1995-03-21" }, onBack() {}, onLogout() {}, onTestBackend() {}, onUpdate() {} }));
     assert.match(profile, /بررسی اتصال/);

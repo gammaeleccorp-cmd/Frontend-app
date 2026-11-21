@@ -10,7 +10,7 @@ test("speedometer distinguishes zero, missing and stale data and bounds its need
     const { default: Speedometer } = await vite.ssrLoadModule("/src/components/Speedometer.jsx");
     const render = (value, fresh = false) => renderToStaticMarkup(createElement(Speedometer, { value, fresh }));
     assert.match(render("0", true), /<strong>0<\/strong>/);
-    assert.match(render("0", true), /داده تازه/);
+    assert.match(render("0", true), /سرعت به‌روز/);
     assert.match(render("0.72228"), /<strong>1<\/strong>/);
     assert.match(render("84.6"), /<strong>85<\/strong>/);
     assert.match(render("84.6"), /داده قدیمی/);
@@ -18,6 +18,13 @@ test("speedometer distinguishes zero, missing and stale data and bounds its need
     assert.match(render(120), /rotate\(0deg\)/);
     assert.match(render(250), /rotate\(120deg\)/);
     assert.match(render(250), /<strong>250<\/strong>/);
+    for (const [switchStatus, label] of [['on', 'روشن'], ['off', 'خاموش'], ['unknown', 'نامشخص']]) {
+      const html = renderToStaticMarkup(createElement(Speedometer, { value: 0, switchStatus, battery: 3.9 }));
+      assert.ok(html.includes(label));
+      assert.match(html, /3.90 V/);
+      assert.match(html, /width="52" height="52"/);
+    }
+    assert.match(renderToStaticMarkup(createElement(Speedometer, { battery: 0 })), /0.00 V/);
     for (const missing of [null, undefined, "", "  ", "—", "invalid", -1, Infinity, NaN]) {
       const html = render(missing, true);
       assert.match(html, /<strong>—<\/strong>/);

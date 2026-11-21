@@ -41,6 +41,15 @@ export function normalizeTelemetryHistory(records = []) {
       recordedAt: record.recorded_at || record.received_at,
       coordinates: coordinates(record),
       speed: record.speed,
+      heading: record.heading,
     })),
   };
+}
+
+// ACC describes a recorded state, so a delayed sample must not revive it.
+export function switchState(record, now = Date.now()) {
+  if (!isTelemetryFresh(record, now) || !isTelemetryFresh({ recorded_at: record?.recorded_at }, now)) return "unknown";
+  if (record.device_status === 0 || record.acc === false || record.acc === 0 || record.acc === "OFF") return "off";
+  if (record.device_status === 1 || record.acc === true || record.acc === 1 || record.acc === "ON") return "on";
+  return "unknown";
 }

@@ -15,6 +15,7 @@ const assert = require("node:assert/strict");
     });
 
     const page = await context.newPage();
+    await page.clock.setFixedTime(new Date("2026-11-16T10:00:00Z"));
     const unexpected = [];
     const pageErrors = [];
     const geofenceWrites = [];
@@ -43,7 +44,7 @@ const assert = require("node:assert/strict");
       else if (path === "/api/v1/notifications/read/") data = {};
       else if (path === "/api/v1/telemetry/devices/NG-0001/latest/") data = null;
       else if (path === "/api/v1/telemetry/devices/NG-0001/history/") data = [
-        { id: 1, latitude: 35.70857123, longitude: 51.37728456, recorded_at: "2026-11-15T08:00:00Z", speed: 12 },
+        { id: 1, latitude: 35.70857123, longitude: 51.37728456, recorded_at: "2026-11-16T08:00:00Z", speed: 12 },
         { id: 2, latitude: 36.12345678, longitude: 52.87654321, recorded_at: "2026-11-16T09:30:00Z", speed: 24 }
       ];
       else if (path === "/api/v1/devices/NG-0001/geofence/") {
@@ -73,8 +74,8 @@ const assert = require("node:assert/strict");
 
     await page.goto(`${process.env.E2E_BASE || "http://127.0.0.1:5178"}/home`);
 
-    await page.getByText("وضعیت ردیاب", { exact: true }).waitFor();
-    await page.getByText("دستگاه NG-0001", { exact: true }).waitFor();
+    await page.locator(".tracker-overview").waitFor();
+    await page.locator(".device-code-badge").waitFor();
     // Sample the existing fade at entrance, visible, and exit frames with a long RTL name.
     for (const width of [320,390]) {
       await page.setViewportSize({width,height:844});
@@ -120,7 +121,7 @@ const assert = require("node:assert/strict");
     await page.setViewportSize({width:390,height:844});
     await page.goto(`${process.env.E2E_BASE || "http://127.0.0.1:5178"}/add-device`);
     await page.waitForURL('**/home');
-    await page.getByText("وضعیت ردیاب", { exact: true }).waitFor();
+    await page.locator(".tracker-overview").waitFor();
     assert.equal(await page.locator('#device-code').count(),0);
     assert.equal(await page.locator('a[href*="neshan.org"]').count(),0);
     await page.goto(`${process.env.E2E_BASE || "http://127.0.0.1:5178"}/vehicle`);
@@ -132,10 +133,9 @@ const assert = require("node:assert/strict");
       assert.equal(await title.locator('.eyebrow').count(),0);
       assert.equal(await title.locator('.muted').count(),0);
       assert.equal(await page.locator('.gamma-brand').getAttribute('dir'),'ltr');
-      assert.equal(await page.locator('.device-code-badge').getAttribute('dir'),'ltr');
-      assert.equal(await page.locator('.device-code-badge').innerText(),'NG-0001');
-      assert.equal(await page.locator('.tracker-overview .status-badge').innerText(),'داده تازه دریافت نشده');
-      for (const selector of ['.gamma-brand','.gamma-brand-wordmark','.gamma-brand-subtitle','.device-code-badge','.tracker-overview .status-badge','.negahban-device-page h2']) {
+      assert.equal(await page.locator('.tracker-overview,.device-code-badge,.device-received').count(),0);
+      assert.match(await page.locator('.info-grid').innerText(),/NG-0001/);
+      for (const selector of ['.gamma-brand','.gamma-brand-wordmark','.gamma-brand-subtitle','.negahban-device-page h2']) {
         assert.equal(await page.locator(selector).evaluate(el=>el.scrollWidth<=el.clientWidth+1),true,`${selector} clips at ${width}`);
       }
       const back=title.getByRole('button',{name:'بازگشت'});
@@ -158,14 +158,14 @@ const assert = require("node:assert/strict");
     }
     await page.setViewportSize({width:390,height:844});
     await page.goto(`${process.env.E2E_BASE || "http://127.0.0.1:5178"}/home`);
-    await page.getByText("وضعیت ردیاب", { exact: true }).waitFor();
+    await page.locator(".tracker-overview").waitFor();
 
     await page.locator(".geofence-card").waitFor();
     await page.locator(".geofence-card button").click();
     await page.waitForURL("**/routes");
 
     const disclosure=page.locator('.route-history');
-    const summary=disclosure.locator('summary');
+    const summary=disclosure.locator(':scope > summary');
     const rows=page.locator('.route-row');
     assert.equal(await disclosure.getAttribute('open'),null);
     assert.equal(await rows.first().isVisible(),false);
@@ -187,7 +187,7 @@ const assert = require("node:assert/strict");
     assert.equal(await page.locator('a[href*="neshan.org"]').count(),2);
     const expected=[
       ['2026-11-16T09:30:00Z','https://neshan.org/maps/@36.12345678,52.87654321,16z'],
-      ['2026-11-15T08:00:00Z','https://neshan.org/maps/@35.70857123,51.37728456,16z']
+      ['2026-11-16T08:00:00Z','https://neshan.org/maps/@35.70857123,51.37728456,16z']
     ];
     const opened=[];
     await context.route('https://neshan.org/**',async route=>{
@@ -196,8 +196,8 @@ const assert = require("node:assert/strict");
     });
     for(let i=0;i<expected.length;i++) {
       const row=rows.nth(i), link=row.getByRole('link',{name:'مشاهده در نشان',exact:true});
-      assert.equal(await row.locator('time').getAttribute('datetime'),expected[i][0]);
-      assert.ok((await row.locator('time').innerText()).length>5);
+      assert.equal(await row.locator('.route-row-main > strong time').getAttribute('datetime'),expected[i][0]);
+      assert.ok((await row.locator('.route-row-main > strong time').innerText()).length>5);
       assert.equal(await link.getAttribute('href'),expected[i][1]);
       const popupPromise=context.waitForEvent('page');
       await link.click();
@@ -208,7 +208,8 @@ const assert = require("node:assert/strict");
     }
     assert.deepEqual(opened,expected.map(item=>item[1]));
     assert.equal(await page.locator('.full-map .leaflet-container').count(),1);
-    assert.equal(await page.locator('.full-map path.leaflet-interactive').count(),2);
+    assert.equal(await page.locator('.full-map path.leaflet-interactive').count(),3);
+    assert.equal(await page.locator('.full-map .route-map-marker').count(),2);
 
     const routeMap=page.locator('.full-map .leaflet-container');
     const routeMapElement=await routeMap.elementHandle();
@@ -226,6 +227,7 @@ const assert = require("node:assert/strict");
     await page.getByRole("button",{name:/محدوده جغرافیایی/}).click();
     const map=page.locator('#fence-editor .leaflet-container');
     await page.waitForTimeout(250);
+    await map.scrollIntoViewIfNeeded();
     for(const [x,y] of [[70,70],[180,65],[205,200],[80,210]]) await map.click({position:{x,y}});
     await page.getByText('۴ از ۴',{exact:true}).waitFor();
     // History disclosure must preserve the mounted geofence map and its unsaved vertices.
@@ -238,7 +240,10 @@ const assert = require("node:assert/strict");
     }
     await page.getByRole('button',{name:'حذف آخرین نقطه'}).click();
     await page.getByText('۳ از ۴',{exact:true}).waitFor();
+    await map.scrollIntoViewIfNeeded();
     await map.click({position:{x:80,y:210}});
+    await page.getByText('۴ از ۴',{exact:true}).waitFor();
+    assert.equal(await page.getByRole('button',{name:'ذخیره محدوده',exact:true}).isDisabled(),false,await page.locator('#fence-editor').innerText());
     await page.getByRole('button',{name:'ذخیره محدوده',exact:true}).click();
     await page.getByText('محدوده ذخیره شد.',{exact:true}).waitFor();
     assert.equal(geofenceWrites[0].body.boundary_points.length,4);
