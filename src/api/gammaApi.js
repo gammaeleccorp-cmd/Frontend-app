@@ -42,8 +42,13 @@ export async function getLatestTelemetry(vehicleId) {
   return apiRequest(endpoints.telemetry.latest(vehicleId));
 }
 
-export async function getDeviceTelemetryHistory(deviceCode) {
-  return paginatedHistory(endpoints.telemetry.deviceHistory(deviceCode), apiRequest, runtime.apiBaseUrl);
+export async function getDeviceTelemetryHistory(deviceCode, { start, end, signal } = {}) {
+  const params = new URLSearchParams();
+  if (start) params.set("start", start);
+  if (end) params.set("end", end);
+  const query = params.toString();
+  const path = `${endpoints.telemetry.deviceHistory(deviceCode)}${query ? `?${query}` : ""}`;
+  return paginatedHistory(path, (page) => apiRequest(page, { signal }), runtime.apiBaseUrl);
 }
 
 export async function getLatestDeviceTelemetry(deviceCode) {

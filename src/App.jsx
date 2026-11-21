@@ -25,6 +25,7 @@ import { getUserProducts, normalizeProductType, PRODUCTS } from "./data/mockData
 import { normalizeDigits } from "./utils/validation";
 import { jalaliToIso } from "./utils/jalali.mjs";
 import { isTelemetryFresh } from "./utils/telemetry.mjs";
+import { pointsWithinInterval } from "./utils/historyInterval.mjs";
 import GammaSplash from "./components/splash/GammaSplash";
 import * as repo from "./services/gammaRepository";
 
@@ -238,7 +239,46 @@ function DtcRoute() { const { product, data } = useApp(); const { code } = usePa
 function EcuRoute() { const { product, data, setData, showToast } = useApp(); const back = useBack(); const [refreshing, setRefreshing] = useState(false); if (product !== PRODUCTS.LUMINEN) return <Navigate to="/home" replace />; const refresh = async () => { setRefreshing(true); try { setData(await repo.refreshLiveData()); showToast("داده‌های ECU به‌روزرسانی شد."); } catch { showToast("به‌روزرسانی داده‌های ECU ناموفق بود."); } finally { setRefreshing(false); } }; return <EcuLivePage parameters={data.ecuParameters} onRefresh={refresh} refreshing={refreshing} onBack={back} />; }
 function ConnectionRoute() { const { product, data, setData, showToast } = useApp(); const back = useBack(); if (product !== PRODUCTS.LUMINEN) return <Navigate to="/home" replace />; return <ConnectionPage connection={data.connection} onChange={(connection) => setData((current) => ({ ...current, connection }))} onNotify={showToast} onBack={back} />; }
 function OtaRoute() { const { product, data } = useApp(); const back = useBack(); if (product !== PRODUCTS.LUMINEN) return <Navigate to="/home" replace />; return <OtaPage vehicle={data.vehicle} onCheck={repo.checkOta} onBack={back} />; }
-function RoutesRoute() { const { product, data, now, setData, geofence } = useApp(); const back = useBack(); const [syncing, setSyncing] = useState(false); const [syncError, setSyncError] = useState(""); if (product !== PRODUCTS.NEGAHBAN) return <Navigate to="/home" replace />; const sync = async () => { setSyncing(true); setSyncError(""); try { setData(await repo.syncNegahban()); } catch (error) { setSyncError(error?.message || "به‌روزرسانی ناموفق بود."); } finally { setSyncing(false); } }; return <RoutesPage now={now} geofence={geofence} routePoints={data.routePoints} routeHistory={data.routeHistory} latestTelemetry={data.latestTelemetry} deviceCode={data.vehicle?.deviceCode} online={isTelemetryFresh({ recorded_at: data.routeHistory?.[0]?.recordedAt }, now)} historyError={syncError || data.historyError} onSync={sync} syncing={syncing} onBack={back} />; }
+function RoutesRoute() {
+  const { product, data, now, geofence } = useApp();
+  const back = useBack();
+  const deviceCode = data.vehicle?.deviceCode;
+  const [interval, setInterval] = useState(24);
+  const [refreshVersion, setRefreshVersion] = useState(0);
+  const [history, setHistory] = useState(() => pointsWithinInterval(data.routeHistory || [], 24, Date.now()));
+  const [syncing, setSyncing] = useState(false);
+  const [syncError, setSyncError] = useState("");
+  const latestRequest = useRef(0);
+
+  useEffect(() => {
+    if (!deviceCode || product !== PRODUCTS.NEGAHBAN) return undefined;
+    const requestId = latestRequest.current + 1;
+    latestRequest.current = requestId;
+    const controller = new AbortController();
+    const endTime = Date.now();
+    const range = {
+      start: new Date(endTime - interval * 60 * 60 * 1000).toISOString(),
+      end: new Date(endTime).toISOString(),
+    };
+    setSyncing(true);
+    setSyncError("");
+    repo.getNegahbanHistory(deviceCode, range, controller.signal).then((result) => {
+      if (latestRequest.current !== requestId) return;
+      setHistory(result.routeHistory);
+    }).catch((error) => {
+      if (latestRequest.current !== requestId) return;
+      setSyncError(error?.message || "تاریخچهٔ موقعیت دریافت نشد.");
+    }).finally(() => {
+      if (latestRequest.current === requestId) setSyncing(false);
+    });
+    return () => controller.abort();
+  }, [deviceCode, interval, product, refreshVersion]);
+
+  if (product !== PRODUCTS.NEGAHBAN) return <Navigate to="/home" replace />;
+  return <RoutesPage geofence={geofence} routePoints={data.routePoints} routeHistory={history} deviceCode={deviceCode}
+    online={isTelemetryFresh({ recorded_at: history?.[0]?.recordedAt }, now)} historyError={syncError || (!history.length ? data.historyError : "")}
+    interval={interval} onIntervalChange={setInterval} onSync={() => setRefreshVersion(version => version + 1)} syncing={syncing} onBack={back} />;
+}
 function MpuRoute() { const { product, data } = useApp(); const back = useBack(); if (product !== PRODUCTS.NEGAHBAN) return <Navigate to="/home" replace />; return <MpuPage events={data.mpuEvents} onBack={back} />; }
 function ProfileRoute() { const { data, setData, showToast, logout } = useApp(); const back = useBack(); const update = async (changes) => { const raw = await repo.updateProfile(changes); setData((current) => ({ ...current, user: { ...current.user, firstName: raw?.first_name ?? changes.first_name, lastName: raw?.last_name ?? changes.last_name, birthDate: raw?.birth_date ?? changes.birth_date } })); showToast("پروفایل ذخیره شد."); }; return <ProfilePage user={data.user} onUpdate={update} onTestBackend={repo.testBackendConnection} onBack={back} onLogout={logout} />; }
 

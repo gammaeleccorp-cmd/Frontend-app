@@ -1,4 +1,4 @@
-import { HISTORY_INTERVALS, pointsWithinInterval } from "../utils/historyInterval.mjs";
+import { HISTORY_INTERVALS } from "../utils/historyInterval.mjs";
 import { recentRecordedPoints, neshanUrl } from "../utils/flag15.mjs";
 import RecordedPointPopup from "../components/RecordedPointPopup";
 import { recordedSpeed } from "../utils/routeMarkers.mjs";
@@ -14,12 +14,11 @@ import { formatTelemetryTime } from "../utils/telemetry.mjs";
 
 const EMPTY_INTERVAL = "در داده‌های دریافت‌شده، نقطه‌ای در این بازه پیدا نشد؛ ممکن است تاریخچهٔ دیگری روی سرور موجود باشد.";
 
-export default function RoutesPage({ now = Date.now(), geofence, routePoints = [], routeHistory = [], deviceCode, online, historyError, onSync, syncing = false, onBack }) {
+export default function RoutesPage({ geofence, routePoints = [], routeHistory = [], deviceCode, online, historyError, interval = 24, onIntervalChange, onSync, syncing = false, onBack }) {
   const [tilesFailed, setTilesFailed] = useState(false);
   const [mapVersion, setMapVersion] = useState(0);
-  const [interval, setInterval] = useState(24);
   const allHistory = recentRecordedPoints(routeHistory, Infinity);
-  const history = pointsWithinInterval(allHistory, interval, now);
+  const history = allHistory;
   const points = history.slice().reverse().map(point => point.coordinates).filter((point) => Array.isArray(point) && point.length === 2 && point.every(Number.isFinite));
   const markers = routeMarkers(history);
   const lastPoint = markers.at(-1)?.point.coordinates || points.at(-1);
@@ -49,10 +48,10 @@ export default function RoutesPage({ now = Date.now(), geofence, routePoints = [
       <summary><h3>نقاط ثبت‌شده</h3><span className="muted small-text">{history.length} مورد</span><ChevronDown className="route-history-chevron" size={20} aria-hidden="true" /></summary>
       <div className="route-interval" dir="rtl">
         <label htmlFor="route-interval">بازهٔ زمانی</label>
-        <select id="route-interval" value={interval} onChange={event => setInterval(Number(event.target.value))} aria-describedby="route-interval-coverage">
+        <select id="route-interval" value={interval} onChange={event => onIntervalChange?.(Number(event.target.value))} aria-describedby="route-interval-coverage">
           {HISTORY_INTERVALS.map(option => <option key={option.hours} value={option.hours}>{option.label}</option>)}
         </select>
-        <p className="muted" id="route-interval-coverage" role="status">{history.length} از {allHistory.length} نقطهٔ دریافت‌شده در این بازه. ممکن است سرور فقط ۱۰۰ رکورد آخر را برگرداند.</p>
+        <p className="muted" id="route-interval-coverage" role="status">{history.length} نقطه در این بازه از سرور دریافت شد.</p>
       </div>
       <div className="route-list">
         {history.map((item) => <article className="route-row" key={`${item.id}-${item.recordedAt}-${item.coordinates.join(",")}`}>

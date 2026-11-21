@@ -501,6 +501,15 @@ export async function syncNegahban() {
   return mockNegahbanState;
 }
 
+export async function getNegahbanHistory(deviceCode, range, signal) {
+  if (runtime.useMockApi) {
+    await sleep(200);
+    return { routePoints: mockRoutePoints, routeHistory: mockRouteHistory };
+  }
+  const items = await gammaApi.getDeviceTelemetryHistory(deviceCode, { ...range, signal });
+  return normalizeTelemetryHistory(items);
+}
+
 export async function getBootstrapData() {
   if (runtime.useMockApi) {
     await sleep(250);

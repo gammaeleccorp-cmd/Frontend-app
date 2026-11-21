@@ -48,7 +48,7 @@ test('Routes renders each recorded timestamp beside its own exact Neshan link', 
     assert.match(html, /<option value="24" selected="">۲۴ ساعت گذشته/);
     assert.equal((html.match(/<option /g) || []).length, 5);
     assert.doesNotMatch(html, /datetime-local|همه نقاط دریافتی/);
-    assert.match(html, /۱۰۰ رکورد آخر/);
+    assert.match(html, /2 نقطه در این بازه از سرور دریافت شد/);
     const rows = [...html.matchAll(/<article class="route-row">(.*?)<\/article>/g)].map(match => match[1]);
     assert.equal(rows.length, 2);
     for (const [index, point] of [newer, older].entries()) {
