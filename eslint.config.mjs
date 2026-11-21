@@ -8,7 +8,7 @@ export default [
     files: ["src/**/*.{js,jsx}"],
     ...js.configs.recommended,
     languageOptions: {
-      globals: globals.browser,
+      globals: { ...globals.browser, __GAMMA_RELEASE__: "readonly" },
       parserOptions: { ecmaFeatures: { jsx: true } },
     },
     plugins: { react },

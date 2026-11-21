@@ -20,6 +20,7 @@ async function run(file) {
     'tests/current-dashboard.e2e.cjs',
     'tests/compact-dashboard.e2e.cjs',
     'tests/route-markers.e2e.cjs',
+    'tests/release-update.e2e.cjs',
     // LEGACY: device-dashboard.e2e.cjs targets removed routes.
     // Restore its coverage with current-architecture tests before release approval.
   ];

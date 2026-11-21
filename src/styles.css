@@ -851,3 +851,7 @@ button:disabled { opacity: .55; cursor: not-allowed; }
   .geofence-card > button { grid-column: 1 / -1; grid-row: auto; justify-self: center; }
 }
 .device-heading:has(h2) { display: grid; grid-template-columns: 28px minmax(0, 1fr) 28px; }
+/* Stays above app navigation and respects standalone mobile safe areas. */
+.release-update { position: fixed; z-index: 10000; top: max(12px, env(safe-area-inset-top)); inset-inline: 12px; margin-inline: auto; max-width: 440px; padding: 16px; border: 1px solid #ff6b1a; border-radius: 16px; background: #202024; color: #fff; box-shadow: 0 8px 32px #0009; max-height: 65dvh; overflow: auto; }
+.release-update p { margin: 8px 0; }
+.release-update button { min-height: 44px; }

@@ -230,6 +230,22 @@ const assert = require("node:assert/strict");
     await map.scrollIntoViewIfNeeded();
     for(const [x,y] of [[70,70],[180,65],[205,200],[80,210]]) await map.click({position:{x,y}});
     await page.getByText('۴ از ۴',{exact:true}).waitFor();
+    const releaseIdentity = await page.locator('meta[name="gamma-release"]').getAttribute('content');
+    if (/^[a-f0-9]{40}$/.test(releaseIdentity)) {
+      let offered = 'b'.repeat(40);
+      const metadata = route => route.fulfill({contentType:'application/json',body:JSON.stringify({component:'frontend',source_commit:offered})});
+      await page.route('**/release.json', metadata);
+      await page.evaluate(() => window.dispatchEvent(new Event('online')));
+      await page.getByText('نسخهٔ جدید آماده است',{exact:true}).waitFor();
+      await page.getByRole('button',{name:'به‌روزرسانی',exact:true}).click();
+      await page.getByText('ابتدا محدودهٔ در حال ویرایش را ذخیره یا پاک کنید و منتظر پایان ذخیره بمانید.',{exact:true}).waitFor();
+      await page.getByText('۴ از ۴',{exact:true}).waitFor();
+      assert.ok(page.url().endsWith('/routes'), 'draft update must not navigate');
+      offered = releaseIdentity;
+      await page.evaluate(() => window.dispatchEvent(new Event('online')));
+      await page.locator('.release-update').waitFor({state:'detached'});
+      await page.unroute('**/release.json', metadata);
+    }
     // History disclosure must preserve the mounted geofence map and its unsaved vertices.
     const fenceMapElement=await map.elementHandle();
     for(const expanded of [true,false]) {

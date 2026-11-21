@@ -10,6 +10,7 @@ import json
 import os
 from pathlib import Path, PurePosixPath
 import re
+import shutil
 import subprocess
 import tarfile
 import tempfile
@@ -289,6 +290,8 @@ def activate(root, component, sha):
         raise ValueError('Live path must already be an approved symlink layout')
     folder, previous = backup(root, component, target)
     app = prepare_backend(release) if component == 'backend' else release
+    if component == 'frontend':
+        retain_frontend_assets(root, [previous, release])
     (folder / 'new.json').write_text(json.dumps({'source_commit': sha, 'path': str(app)}))
     switch(target, app)
     try:
@@ -301,6 +304,42 @@ def activate(root, component, sha):
         restart(component)
         raise
     print(f'ACTIVATED {sha}; rollback: python3 {__file__} rollback {component} --root {root} --backup {folder}')
+
+
+def retain_frontend_assets(root, releases):
+    """Append immutable hashed assets before switching; never remove old chunks.
+
+    Called under the release lock. A collision must fail before activation.
+    Nginx uses this pool only when an asset is absent from the current release.
+    """
+    pool = root / 'frontend' / 'assets'
+    if pool.is_symlink():
+        raise ValueError('Asset pool must not be a symlink')
+    pool.mkdir(mode=0o755, parents=True, exist_ok=True)
+    for release in releases:
+        source = release / 'assets'
+        if source.is_symlink():
+            raise ValueError('Release assets must not be a symlink')
+        if not source.exists():
+            continue
+        for asset in source.iterdir():
+            if asset.is_symlink() or not asset.is_file() or not re.fullmatch(r'.+-[A-Za-z0-9_-]{8,}\.[A-Za-z0-9]+', asset.name):
+                raise ValueError(f'Expected a content-hashed asset: {asset.name}')
+            destination = pool / asset.name
+            if destination.is_symlink():
+                raise ValueError('Retained asset must not be a symlink')
+            if destination.exists():
+                if hashlib.sha256(destination.read_bytes()).digest() != hashlib.sha256(asset.read_bytes()).digest():
+                    raise ValueError(f'Immutable asset collision: {asset.name}')
+                continue
+            descriptor, temporary = tempfile.mkstemp(prefix='.asset-', dir=pool)
+            try:
+                with os.fdopen(descriptor, 'wb') as output, asset.open('rb') as incoming:
+                    shutil.copyfileobj(incoming, output)
+                Path(temporary).chmod(0o444)
+                os.link(temporary, destination)
+            finally:
+                Path(temporary).unlink(missing_ok=True)
 
 
 def rollback(root, component, folder):

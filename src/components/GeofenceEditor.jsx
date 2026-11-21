@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Circle, CircleMarker, MapContainer, Polygon, Polyline, TileLayer, Tooltip, useMap, useMapEvents } from "react-leaflet";
 import { polygonError } from "../utils/flag15.mjs";
+import useUpdateBlocker from "../hooks/useUpdateBlocker";
 function MapActions({ open, onPoint }) {
  const map = useMap();
  useEffect(() => { if (open) { const timer=setTimeout(() => map.invalidateSize(),220); return () => clearTimeout(timer); } },[open,map]);
@@ -13,9 +14,11 @@ export default function GeofenceEditor({ fence, deviceCode, lastPoint }) {
  const [error,setError]=useState("");
  const [busy,setBusy]=useState(false);
  const [notice,setNotice]=useState("");
+ const [savedPoints,setSavedPoints]=useState("[]");
+ useUpdateBlocker(busy || fence.loading || (points.length > 0 && JSON.stringify(points) !== savedPoints));
  const invalid=polygonError(points);
  const existing=fence.value;
- const save=async () => { setBusy(true);setNotice(""); try { if(!invalid && !busy && existing?.supports_polygon && await fence.save({boundary_points:points})) setNotice("محدوده ذخیره شد."); } finally {setBusy(false);} };
+ const save=async () => { setBusy(true);setNotice(""); try { if(!invalid && !busy && existing?.supports_polygon && await fence.save({boundary_points:points})) { setSavedPoints(JSON.stringify(points)); setNotice("محدوده ذخیره شد."); } } finally {setBusy(false);} };
  return <section className="panel">
  <button className="secondary-btn" type="button" aria-expanded={open} aria-controls="fence-editor" onClick={()=>setOpen(v=>!v)}>محدوده جغرافیایی · {open ? "بستن" : "باز کردن"}</button>
  <div id="fence-editor" className={`fence-disclosure ${open ? "is-open" : ""}`} inert={open ? undefined : ""}><div>
