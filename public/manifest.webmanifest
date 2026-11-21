@@ -6,5 +6,13 @@
   "background_color": "#151517",
   "theme_color": "#151517",
   "lang": "fa",
-  "dir": "rtl"
+  "dir": "rtl",
+  "icons": [
+    {
+      "src": "/icons/gamma-app.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
 }
