@@ -103,6 +103,34 @@ class ReleaseTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             release.stage(self.root, 'frontend', self.sha, archive, hashlib.sha256(archive.read_bytes()).hexdigest())
 
+    def test_retained_assets_survive_switch_and_reject_hash_collisions(self):
+        old = self.root / 'old' / 'assets'
+        new = self.root / 'new' / 'assets'
+        old.mkdir(parents=True)
+        new.mkdir(parents=True)
+        (old / 'RoutesPage-aaaaaaaa.js').write_text('old lazy chunk')
+        (new / 'RoutesPage-bbbbbbbb.js').write_text('new lazy chunk')
+        release.retain_frontend_assets(self.root, [old.parent, new.parent])
+        pool = self.root / 'frontend' / 'assets'
+        self.assertEqual((pool / 'RoutesPage-aaaaaaaa.js').read_text(), 'old lazy chunk')
+        self.assertEqual((pool / 'RoutesPage-bbbbbbbb.js').stat().st_mode & 0o222, 0)
+        release.retain_frontend_assets(self.root, [old.parent, new.parent])
+        (new / 'RoutesPage-aaaaaaaa.js').write_text('different bytes with same name')
+        with self.assertRaisesRegex(ValueError, 'collision'):
+            release.retain_frontend_assets(self.root, [new.parent])
+        self.assertEqual((pool / 'RoutesPage-aaaaaaaa.js').read_text(), 'old lazy chunk')
+
+    def test_retained_assets_reject_links_and_unhashed_names(self):
+        assets = self.root / 'new' / 'assets'
+        assets.mkdir(parents=True)
+        (assets / 'unhashed.js').write_text('mutable')
+        with self.assertRaisesRegex(ValueError, 'content-hashed'):
+            release.retain_frontend_assets(self.root, [assets.parent])
+        (assets / 'unhashed.js').unlink()
+        (assets / 'index-aaaaaaaa.js').symlink_to(__file__)
+        with self.assertRaisesRegex(ValueError, 'content-hashed'):
+            release.retain_frontend_assets(self.root, [assets.parent])
+
     def test_backend_artifact_layout_is_accepted(self):
         archive = self.archive({
             'gamma_backend/manage.py': '# entrypoint',

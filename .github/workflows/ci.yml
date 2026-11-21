@@ -43,6 +43,9 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
+      - name: Install Nginx for delivery regression checks
+        run: sudo apt-get update && sudo apt-get install -y nginx-light
+
       - name: Run deployment tests
         run: python -m unittest discover -s deploy -p 'test_*.py' -v
 
@@ -94,6 +97,9 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install Nginx for delivery regression checks
+        run: sudo apt-get update && sudo apt-get install -y nginx-light
 
       - name: Re-run deployment tests
         run: python -m unittest discover -s deploy -p 'test_*.py' -v
