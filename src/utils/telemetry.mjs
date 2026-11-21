@@ -41,6 +41,7 @@ export function normalizeTelemetryHistory(records = []) {
       recordedAt: record.recorded_at || record.received_at,
       coordinates: coordinates(record),
       speed: record.speed,
+      heading: record.heading,
     })),
   };
 }

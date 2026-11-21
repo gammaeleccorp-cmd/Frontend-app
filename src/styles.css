@@ -798,3 +798,17 @@ button:disabled { opacity: .55; cursor: not-allowed; }
 .switch-status { padding: 3px 10px; border: 1px solid #666970; border-radius: 999px; background: #19191c; color: #b6b8bd; }
 .switch-status.on { color: var(--green); border-color: rgba(61,220,132,.3); background: rgba(61,220,132,.04); }
 .battery-detail span { font-variant-numeric: tabular-nums; }
+
+/* The 44px Leaflet hit target stays fixed; rotate only the car inside it. */
+.route-map-marker { display: grid; place-items: center; border: 2px solid #fff; border-radius: 50%; box-shadow: 0 2px 8px #0008; color: #151517; }
+.route-map-marker.start { background: var(--green); }
+.route-map-marker.end { background: var(--orange); }
+.route-map-marker.includes-start { border-color: var(--green); box-shadow: 0 0 0 2px #fff, 0 2px 8px #0008; }
+.route-map-marker:focus-visible { outline: 3px solid #fff; outline-offset: 4px; }
+.route-marker-symbol { position: relative; display: grid; place-items: center; width: 40px; height: 40px; }
+.route-marker-symbol svg { display: block; transform-origin: center; }
+.route-start-dot { position: absolute; inset-inline-end: 0; bottom: 0; width: 10px; height: 10px; border-radius: 50%; background: var(--green); border: 1px solid #151517; }
+.route-point-popup { color: #202024; text-align: right; font-family: inherit; font-size: 12px; line-height: 1.8; overflow-wrap: anywhere; }
+.route-popup-record { display: grid; gap: 2px; margin-top: 8px; }
+.route-point-popup small { display: block; margin-top: 8px; }
+.route-point-popup time { display: block; }

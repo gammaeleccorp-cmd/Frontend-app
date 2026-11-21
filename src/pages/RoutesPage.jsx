@@ -1,7 +1,9 @@
 import { recentRecordedPoints, neshanUrl } from "../utils/flag15.mjs";
+import RouteMarkers from "../components/RouteMarkers";
+import { routeMarkers } from "../utils/routeMarkers.mjs";
 import GeofenceEditor from "../components/GeofenceEditor";
 import { useState } from "react";
-import { MapContainer, TileLayer, Polyline, CircleMarker } from "react-leaflet";
+import { MapContainer, TileLayer, Polyline } from "react-leaflet";
 import { ChevronDown, MapPinned, RefreshCcw } from "lucide-react";
 import PageHeader from "../components/PageHeader";
 import StatusBadge from "../components/StatusBadge";
@@ -11,7 +13,8 @@ export default function RoutesPage({ geofence, routePoints = [], routeHistory = 
   const [tilesFailed, setTilesFailed] = useState(false);
   const [mapVersion, setMapVersion] = useState(0);
   const points = routePoints.filter((point) => Array.isArray(point) && point.length === 2 && point.every(Number.isFinite));
-  const lastPoint = points.at(-1);
+  const markers = routeMarkers(routeHistory);
+  const lastPoint = markers.at(-1)?.point.coordinates || points.at(-1);
   const history = recentRecordedPoints(routeHistory);
   const retryMap = () => { setTilesFailed(false); setMapVersion((version) => version + 1); };
 
@@ -26,7 +29,7 @@ export default function RoutesPage({ geofence, routePoints = [], routeHistory = 
             <TileLayer attribution="&copy; OpenStreetMap contributors" url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
               eventHandlers={{ tileerror: () => setTilesFailed(true), tileload: () => setTilesFailed(false) }} />
             {points.length > 1 && <Polyline positions={points} color="#ff6b1a" />}
-            <CircleMarker center={lastPoint} radius={9} pathOptions={{ color: "#ff6b1a", fillColor: "#ff6b1a", fillOpacity: 0.7 }} />
+            <RouteMarkers history={routeHistory} />
           </MapContainer>
           {tilesFailed && <div className="map-error-overlay" role="alert">کاشی‌های نقشه بارگذاری نشدند. نقاط ثبت‌شده از فهرست پایین قابل مشاهده‌اند.<button type="button" className="secondary-btn" onClick={retryMap}>تلاش مجدد</button></div>}
         </> : <div className="empty-state map-empty">{historyError || "هنوز موقعیت واقعی از دستگاه دریافت نشده است."}</div>}

@@ -204,7 +204,8 @@ const assert = require("node:assert/strict");
     }
     assert.deepEqual(opened,expected.map(item=>item[1]));
     assert.equal(await page.locator('.full-map .leaflet-container').count(),1);
-    assert.equal(await page.locator('.full-map path.leaflet-interactive').count(),2);
+    assert.equal(await page.locator('.full-map path.leaflet-interactive').count(),1);
+    assert.equal(await page.locator('.full-map .route-map-marker').count(),2);
 
     const routeMap=page.locator('.full-map .leaflet-container');
     const routeMapElement=await routeMap.elementHandle();

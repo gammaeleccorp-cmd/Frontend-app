@@ -3,22 +3,30 @@ import assert from 'node:assert/strict';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { createServer } from 'vite';
+import { routeMarkers } from '../src/utils/routeMarkers.mjs';
 import { formatTelemetryTime } from '../src/utils/telemetry.mjs';
 
 test('Routes renders each recorded timestamp beside its own exact Neshan link', async () => {
   // Leaflet requires a browser; stub only the map layer for this markup check.
   const vite = await createServer({
-    server: { middlewareMode: true, hmr: false }, appType: 'custom',
-    ssr: { noExternal: ['react-leaflet'] },
+    server: { middlewareMode: true, hmr: false, ws: false }, appType: 'custom',
+    optimizeDeps: { noDiscovery: true, include: [] },
+    ssr: { noExternal: ['react-leaflet', 'leaflet'] },
     plugins: [{
       name: 'map-stub', enforce: 'pre',
-      resolveId(id) { if (id === 'react-leaflet') return '\0map-stub'; },
+      resolveId(id) {
+        if (id === 'react-leaflet') return '\0map-stub';
+        if (id.endsWith('/components/RouteMarkers')) return '\0route-marker-stub';
+      },
       load(id) {
+        if (id === '\0route-marker-stub') return 'export default () => null;';
         if (id === '\0map-stub') return `
           export const MapContainer = ({children}) => children;
           export const TileLayer = () => null;
           export const Polyline = () => null;
           export const CircleMarker = () => null;
+          export const Marker = () => null;
+          export const Popup = () => null;
           export const Circle = () => null;
           export const Polygon = () => null;
           export const Tooltip = () => null;
@@ -49,6 +57,19 @@ test('Routes renders each recorded timestamp beside its own exact Neshan link', 
     const empty = renderToStaticMarkup(createElement(RoutesPage, {}));
     assert.match(empty, /هنوز موقعیتی در تاریخچه ثبت نشده است/);
     assert.doesNotMatch(empty, /neshan.org/);
+    const { default: RecordedPointPopup } = await vite.ssrLoadModule('/src/components/RecordedPointPopup.jsx');
+    for (const records of [[older, newer], [{ ...older, speed: null }], [older, { ...newer, coordinates: older.coordinates }]]) {
+      for (const marker of routeMarkers(records)) {
+        const popup = renderToStaticMarkup(createElement(RecordedPointPopup, { marker }));
+        assert.match(popup, /dir="rtl"/);
+        for (const point of marker.points) {
+          assert.ok(popup.includes(`<time dateTime="${point.recordedAt}">${formatTelemetryTime(point.recordedAt)}</time>`));
+          assert.ok(popup.includes(point.speed == null ? 'ثبت نشده' : `${point.speed} km/h`));
+        }
+        if (marker.includesStart) assert.match(popup, /شروع و پایان در یک موقعیت/);
+      }
+    }
+
   } finally {
     await vite.close();
   }
