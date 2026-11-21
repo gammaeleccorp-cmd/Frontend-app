@@ -76,27 +76,47 @@ const path = require('node:path');
           });
           assert.equal(centered, true, `${selector} at ${width}`);
         }
-        await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+        const cards = await page.locator('.tracker-overview,.speed-card,.geofence-card,.map-preview-panel').evaluateAll(elements => elements.map(el => {
+          const box = el.getBoundingClientRect(), style = getComputedStyle(el);
+          return { x: box.x, width: box.width, radius: style.borderRadius, left: style.paddingLeft, right: style.paddingRight };
+        }));
+        assert.deepEqual(cards[0], cards[1], `summary/speed alignment at ${width}`);
+        assert.deepEqual(cards[0], cards[2], `geofence card alignment at ${width}`);
+        assert.deepEqual(cards[0], cards[3], `surrounding card alignment at ${width}`);
+        for (const target of ['.speed-card', '.speed-details', '.battery-detail']) {
+          await page.locator(target).scrollIntoViewIfNeeded();
+          const bounds = await page.locator('.app-scroll').boundingBox();
+          const navigation = await page.locator('.bottom-nav').boundingBox();
+          assert.ok(bounds.y + bounds.height <= navigation.y, `scroll viewport overlaps nav at ${width}`);
+          const point = await page.locator(target).boundingBox();
+          const visibleY = Math.min(point.y + point.height, bounds.y + bounds.height) - 2;
+          assert.ok(await page.evaluate(({ x, y, target }) => Boolean(document.elementFromPoint(x, y)?.closest(target)), { x: point.x + point.width / 2, y: visibleY, target }));
+        }
+        await page.locator('.app-scroll').evaluate(el => el.scrollTo(0, el.scrollHeight));
         const nav = await page.locator('.bottom-nav').boundingBox();
         const end = await page.locator('.device-help').boundingBox();
         assert.ok(end.y + end.height < nav.y, `bottom content overlaps navigation at ${width}`);
-        await page.evaluate(() => window.scrollTo(0, 0));
-        if (['on', 'off', 'missing'].includes(name)) await page.screenshot({ path: path.join(shots, `home-${width}-${name}.png`), fullPage: true, animations: 'disabled' });
+        await page.locator('.app-scroll').evaluate(el => el.scrollTo(0, 0));
+        if (['on', 'off', 'missing'].includes(name)) {
+          await page.screenshot({ path: path.join(shots, `home-${width}-${name}.png`), animations: 'disabled' });
+          await page.locator('.speed-card').scrollIntoViewIfNeeded();
+          await page.screenshot({ path: path.join(shots, `speed-${width}-${name}.png`), animations: 'disabled' });
+        }
       }
       await page.getByRole('button', { name: 'اطلاعات دستگاه', exact: true }).click();
       await page.waitForURL('**/vehicle');
       await page.clock.runFor(500);
-      assert.equal(await page.locator('.device-received').innerText(), 'آخرین دریافت: ثبت نشده');
+      assert.equal(await page.locator('.tracker-overview,.device-code-badge,.device-received').count(), 0);
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
-      const overview = await page.locator('.tracker-overview').boundingBox();
-      assert.ok(overview.height < 200, `overview height at ${width}: ${overview.height}`);
+      assert.match(await page.locator('.info-grid').innerText(), /NG-0001|آخرین دریافت/);
+      const header = await page.locator('.page-header').boundingBox();
       const heading = await page.locator('.page-header h2').boundingBox();
-      assert.ok(Math.abs(heading.x + heading.width / 2 - overview.x - overview.width / 2) < 2);
+      assert.ok(Math.abs(heading.x + heading.width / 2 - header.x - header.width / 2) < 2);
       await page.screenshot({ path: path.join(shots, `device-${width}.png`), fullPage: true, animations: 'disabled' });
     }
     // Advance the real application timer without reloading, while API polling
     // continues to return the same sample. Check both connection and ACC expiry.
-    for (const view of ['home', 'vehicle']) {
+    for (const view of ['home']) {
       await page.clock.setSystemTime(epoch);
       sample = { speed: 45, device_status: 1, battery_voltage: 3.96, recorded_at: stamp, received_at: stamp };
       await page.goto(`${base}/${view}`);
@@ -109,6 +129,6 @@ const path = require('node:path');
     }
     assert.deepEqual(errors, []);
     assert.deepEqual(unexpected, []);
-    console.log('PASS: RTL 320/390/1280; switch on/off/unknown/stale/delayed; battery zero/missing; missing timestamps; home and device Online-to-Offline expiry; read-only status');
+    console.log('PASS: RTL 320/390/1280; switch on/off/unknown/stale/delayed; battery zero/missing; missing timestamps; Home Online-to-Offline expiry; redundant device overview absent; aligned cards and reserved navigation; read-only status');
   } finally { await browser.close(); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

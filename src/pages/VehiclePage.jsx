@@ -2,7 +2,6 @@ import { recordedPosition } from "../utils/flag15.mjs";
 import { Car, Cpu, MapPinned, Radio, Satellite } from "lucide-react";
 import { useState } from "react";
 import PageHeader from "../components/PageHeader";
-import DeviceOverview from "../components/DeviceOverview";
 import StatusBadge from "../components/StatusBadge";
 import VehicleLocation from "../components/VehicleLocation";
 import RelayControl from "../components/RelayControl";
@@ -19,7 +18,7 @@ export default function VehiclePage({ product, data, now, onBack, onUpdate, onRo
   return <section className={`page-section${negahban ? " negahban-device-page" : ""}`} dir="rtl">
     <PageHeader eyebrow={negahban ? undefined : "DEVICE"} title={negahban ? "دستگاه نگهبان" : "خودرو و دستگاه"} subtitle={negahban ? undefined : "اطلاعات ثبت‌شده و وضعیت ارتباط"} onBack={onBack} />
 
-    {negahban ? <DeviceOverview deviceCode={vehicle.deviceCode} telemetry={data.latestTelemetry} now={now} /> : <section className="panel device-overview">
+    {!negahban && <section className="panel device-overview">
       <div className="device-product-mark"><Radio size={36} /></div>
       <div className="device-overview-main"><span className="eyebrow">GAMMA DEVICE</span>
         <h3 className="mono">{vehicle.deviceCode || "کد دستگاه ثبت نشده"}</h3>

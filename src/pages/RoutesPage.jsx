@@ -1,3 +1,4 @@
+import { HISTORY_INTERVALS, pointsWithinInterval } from "../utils/historyInterval.mjs";
 import { recentRecordedPoints, neshanUrl } from "../utils/flag15.mjs";
 import RecordedPointPopup from "../components/RecordedPointPopup";
 import { recordedSpeed } from "../utils/routeMarkers.mjs";
@@ -11,13 +12,15 @@ import PageHeader from "../components/PageHeader";
 import StatusBadge from "../components/StatusBadge";
 import { formatTelemetryTime } from "../utils/telemetry.mjs";
 
-export default function RoutesPage({ geofence, routePoints = [], routeHistory = [], deviceCode, online, historyError, onSync, syncing = false, onBack }) {
+const EMPTY_INTERVAL = "در داده‌های دریافت‌شده، نقطه‌ای در این بازه پیدا نشد؛ ممکن است تاریخچهٔ دیگری روی سرور موجود باشد.";
+
+export default function RoutesPage({ now = Date.now(), geofence, routePoints = [], routeHistory = [], deviceCode, online, historyError, onSync, syncing = false, onBack }) {
   const [tilesFailed, setTilesFailed] = useState(false);
   const [mapVersion, setMapVersion] = useState(0);
-  const [interval, setInterval] = useState({ start: '', end: '' });
+  const [interval, setInterval] = useState(24);
   const allHistory = recentRecordedPoints(routeHistory, Infinity);
-  const history = allHistory.filter(point => (!interval.start || Date.parse(point.recordedAt) >= Date.parse(interval.start)) && (!interval.end || Date.parse(point.recordedAt) <= Date.parse(interval.end)));
-  const points = (allHistory.length ? history.slice().reverse().map(point => point.coordinates) : routePoints).filter((point) => Array.isArray(point) && point.length === 2 && point.every(Number.isFinite));
+  const history = pointsWithinInterval(allHistory, interval, now);
+  const points = history.slice().reverse().map(point => point.coordinates).filter((point) => Array.isArray(point) && point.length === 2 && point.every(Number.isFinite));
   const markers = routeMarkers(history);
   const lastPoint = markers.at(-1)?.point.coordinates || points.at(-1);
   const retryMap = () => { setTilesFailed(false); setMapVersion((version) => version + 1); };
@@ -26,12 +29,12 @@ export default function RoutesPage({ geofence, routePoints = [], routeHistory = 
     <PageHeader eyebrow="ROUTES" title="نقشه و موقعیت‌ها" subtitle={`داده‌های ثبت‌شدهٔ دستگاه ${deviceCode || "—"}`} onBack={onBack}
       action={<StatusBadge tone={online ? "success" : "warning"}>{online ? "داده تازه" : "داده قدیمی"}</StatusBadge>} />
 
-    <section className="panel route-interval" aria-label="بازه زمانی نقاط">
-      <label>از زمان<input type="datetime-local" value={interval.start} onChange={event => setInterval({ ...interval, start: event.target.value })} /></label>
-      <label>تا زمان<input type="datetime-local" value={interval.end} onChange={event => setInterval({ ...interval, end: event.target.value })} /></label>
-      <button type="button" className="secondary-btn" onClick={() => setInterval({ start: '', end: '' })}>همه نقاط دریافتی</button>
-      <p className="muted">فیلتر روی تاریخچه دریافتی اعمال می‌شود؛ تعداد نقاط در دسترس به سرور بستگی دارد.</p>
-      {interval.start && interval.end && Date.parse(interval.start) > Date.parse(interval.end) && <p role="alert" className="form-error">زمان پایان باید پس از زمان شروع باشد.</p>}
+    <section className="panel route-interval" dir="rtl">
+      <label htmlFor="route-interval">بازهٔ زمانی</label>
+      <select id="route-interval" value={interval} onChange={event => setInterval(Number(event.target.value))} aria-describedby="route-interval-coverage">
+        {HISTORY_INTERVALS.map(option => <option key={option.hours} value={option.hours}>{option.label}</option>)}
+      </select>
+      <p className="muted" id="route-interval-coverage">نتایج فقط نقاط دریافت‌شده در بازهٔ انتخابی را پوشش می‌دهند. در پاسخ‌های محدود به ۱۰۰ رکورد آخر، ممکن است همهٔ نقاط این بازه دریافت نشده باشند.</p>
     </section>
     <section className="panel map-panel">
       <div className="map-wrap full-map">
@@ -43,7 +46,7 @@ export default function RoutesPage({ geofence, routePoints = [], routeHistory = 
             <RouteMarkers history={history} />
           </MapContainer>
           {tilesFailed && <div className="map-error-overlay" role="alert">کاشی‌های نقشه بارگذاری نشدند. نقاط ثبت‌شده از فهرست پایین قابل مشاهده‌اند.<button type="button" className="secondary-btn" onClick={retryMap}>تلاش مجدد</button></div>}
-        </> : <div className="empty-state map-empty">{historyError || "هنوز موقعیت واقعی از دستگاه دریافت نشده است."}</div>}
+        </> : <div className="empty-state map-empty">{historyError || EMPTY_INTERVAL}</div>}
       </div>
       {historyError && <p className="form-error" role="alert">{historyError}</p>}
       <button type="button" className="secondary-btn route-refresh" disabled={syncing} onClick={onSync}>
@@ -62,7 +65,7 @@ export default function RoutesPage({ geofence, routePoints = [], routeHistory = 
           <div className="route-row-meta"><span className="muted">{recordedSpeed(item.speed) === null ? "ثبت نشده" : `${recordedSpeed(item.speed)} km/h`}</span></div>
         </article>)}
       </div>
-      {!history.length && <div className="empty-state">هنوز موقعیتی در تاریخچه ثبت نشده است.</div>}
+      {!history.length && <div className="empty-state">{EMPTY_INTERVAL}</div>}
     </details>
   </section>;
 }

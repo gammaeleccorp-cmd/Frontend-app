@@ -38,13 +38,17 @@ test('Routes renders each recorded timestamp beside its own exact Neshan link', 
   });
   try {
     const { default: RoutesPage } = await vite.ssrLoadModule('/src/pages/RoutesPage.jsx');
-    const older = { id: 1, recordedAt: '2026-11-15T08:00:00Z', coordinates: [35.70857123, 51.37728456], speed: 12 };
+    const older = { id: 1, recordedAt: '2026-11-16T08:00:00Z', coordinates: [35.70857123, 51.37728456], speed: 12 };
     const newer = { id: 2, recordedAt: '2026-11-16T09:30:00Z', coordinates: [36.12345678, 52.87654321], speed: 24 };
-    const html = renderToStaticMarkup(createElement(RoutesPage, { routeHistory: [older, { id: 3, recordedAt: '2027-01-01', coordinates: [999, 51] }, newer] }));
+    const html = renderToStaticMarkup(createElement(RoutesPage, { now: Date.parse("2026-11-16T10:00:00Z"), routeHistory: [older, { id: 3, recordedAt: '2027-01-01', coordinates: [999, 51] }, newer] }));
     assert.match(html, /<details class="panel route-history"><summary>/);
     assert.doesNotMatch(html, /<details[^>]*\bopen/);
     assert.match(html, /2 مورد/);
     assert.match(html, /route-history-chevron/);
+    assert.match(html, /<option value="24" selected="">۲۴ ساعت گذشته/);
+    assert.equal((html.match(/<option /g) || []).length, 5);
+    assert.doesNotMatch(html, /datetime-local|همه نقاط دریافتی/);
+    assert.match(html, /۱۰۰ رکورد آخر/);
     const rows = [...html.matchAll(/<article class="route-row">(.*?)<\/article>/g)].map(match => match[1]);
     assert.equal(rows.length, 2);
     for (const [index, point] of [newer, older].entries()) {
@@ -55,11 +59,11 @@ test('Routes renders each recorded timestamp beside its own exact Neshan link', 
     assert.equal((html.match(/neshan.org/g) || []).length, 2);
     assert.doesNotMatch(html, /باز کردن آخرین موقعیت/);
     const many = Array.from({ length: 151 }, (_, id) => ({ ...older, id }));
-    const full = renderToStaticMarkup(createElement(RoutesPage, { routeHistory: many }));
+    const full = renderToStaticMarkup(createElement(RoutesPage, { now: Date.parse("2026-11-16T10:00:00Z"), routeHistory: many }));
     assert.equal((full.match(/class="route-row"/g) || []).length, 151);
     assert.match(full, /151 مورد/);
     const empty = renderToStaticMarkup(createElement(RoutesPage, {}));
-    assert.match(empty, /هنوز موقعیتی در تاریخچه ثبت نشده است/);
+    assert.match(empty, /در داده‌های دریافت‌شده، نقطه‌ای در این بازه پیدا نشد/);
     assert.doesNotMatch(empty, /neshan.org/);
     const { default: RecordedPointPopup } = await vite.ssrLoadModule('/src/components/RecordedPointPopup.jsx');
     for (const records of [[older, newer], [{ ...older, speed: null }], [older, { ...newer, coordinates: older.coordinates }]]) {

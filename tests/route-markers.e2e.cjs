@@ -6,8 +6,18 @@ const path = require('node:path');
 (async () => {
   const browser = await chromium.launch({ headless: true });
   try {
-    const page = await browser.newPage({ timezoneId: 'UTC' });
+    const page = await browser.newPage({ timezoneId: 'UTC', reducedMotion: 'reduce' });
     page.setDefaultTimeout(15000);
+    const epoch = Date.parse('2026-11-21T12:00:00Z');
+    await page.clock.install({ time: epoch });
+    const waitForPopup = async () => {
+      const rendered = await page.waitForFunction(() => {
+        const popup = document.querySelector('.leaflet-popup .route-point-popup');
+        const text = popup?.innerText;
+        return text?.includes('سرعت:') && text.includes('عرض جغرافیایی:') && text.includes('طول جغرافیایی:') && [...popup.querySelectorAll('bdi,time')].every(node => text.includes(node.textContent)) ? text : false;
+      });
+      return rendered.jsonValue();
+    };
     const errors = [], unexpected = [];
     let history = [];
     let paginated = false;
@@ -56,6 +66,7 @@ const path = require('node:path');
         await page.goto(`${base}/routes`);
         const markers = page.locator('.full-map .route-map-marker');
         await markers.first().waitFor();
+        await page.waitForFunction(() => getComputedStyle(document.querySelector('.content-shell')).opacity === '1');
         assert.equal(await markers.count(), count);
         const car = page.locator('.full-map .route-map-marker.end');
         assert.equal(await car.locator('.route-vehicle-icon').count(), 1);
@@ -65,20 +76,24 @@ const path = require('node:path');
         else {
           const start = page.locator('.full-map .route-map-marker.start');
           assert.equal(await start.evaluate(el => getComputedStyle(el).backgroundColor), 'rgb(61, 220, 132)');
+          await page.locator('.full-map .leaflet-container').scrollIntoViewIfNeeded();
           await start.click();
+          const startPopupText = await waitForPopup();
           assert.equal(await page.locator('.leaflet-popup .route-point-popup time').getAttribute('datetime'), first.recorded_at);
-          assert.match(await page.locator('.leaflet-popup .route-point-popup').innerText(), /0 km\/h/);
+          assert.match(startPopupText, /0 km\/h/);
           await page.locator('.leaflet-popup-close-button').click();
         }
         assert.equal(await car.evaluate(el => getComputedStyle(el).backgroundColor), 'rgb(255, 107, 26)');
         const box = await car.boundingBox();
         assert.ok(box.width >= 44 && box.height >= 44);
+        await page.locator('.full-map .leaflet-container').scrollIntoViewIfNeeded();
         await car.click();
+        const carPopupText = await waitForPopup();
         const expectedTimes = name === 'overlap' ? [first.recorded_at, last.recorded_at] : [name === 'single' ? first.recorded_at : last.recorded_at];
         assert.deepEqual(await page.locator('.leaflet-popup .route-point-popup time').evaluateAll(elements => elements.map(el => el.dateTime)), expectedTimes);
         assert.equal(await page.locator('.leaflet-popup .route-point-popup').evaluate(el => getComputedStyle(el).direction), 'rtl');
-        if (name === 'missing-heading-speed') assert.match(await page.locator('.leaflet-popup .route-point-popup').innerText(), /سرعت: ثبت نشده/);
-        if (name === 'overlap') assert.match(await page.locator('.leaflet-popup .route-point-popup').innerText(), /شروع و پایان در یک موقعیت/);
+        if (name === 'missing-heading-speed') assert.match(carPopupText, /سرعت: ثبت نشده/);
+        if (name === 'overlap') assert.match(carPopupText, /شروع و پایان در یک موقعیت/);
         assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
         await page.screenshot({ path: path.join(shots, `routes-${width}-${name}.png`), fullPage: true, animations: 'disabled' });
         // Every row retains its own original coordinate link and timestamp.
@@ -107,10 +122,11 @@ const path = require('node:path');
     });
     assert.deepEqual(historyPages, [1, 2, 3]);
     assert.equal(await page.locator('.route-recorded-point').count(), 151);
+    await page.locator('.full-map .leaflet-container').scrollIntoViewIfNeeded();
     await page.locator('.route-recorded-point').nth(50).click();
-    const popup = page.locator('.leaflet-popup .route-point-popup');
-    assert.match(await popup.innerText(), /عرض جغرافیایی|طول جغرافیایی/);
-    assert.match(await popup.innerText(), /0 km\/h/);
+    const pointPopupText = await waitForPopup();
+    assert.match(pointPopupText, /عرض جغرافیایی|طول جغرافیایی/);
+    assert.match(pointPopupText, /0 km\/h/);
     await page.locator('.leaflet-popup-close-button').click();
     await page.locator('.route-history > summary').click();
     assert.equal(await page.locator('.route-row').count(), 151);
@@ -120,15 +136,51 @@ const path = require('node:path');
       assert.ok((await row.locator('.route-point-popup').innerText()).includes(String(record.latitude)));
       assert.ok((await row.locator('.route-point-popup').innerText()).includes(record.speed === null ? 'ثبت نشده' : '0 km/h'));
     }
-    await page.getByLabel('از زمان', { exact: true }).fill('2026-11-21T10:00');
-    await page.getByLabel('تا زمان', { exact: true }).fill('2026-11-21T10:30');
-    assert.equal(await page.locator('.route-row').count(), 31);
-    assert.equal(await page.locator('.route-recorded-point').count(), 31);
-    await page.getByRole('button', { name: 'همه نقاط دریافتی', exact: true }).click();
-    assert.equal(await page.locator('.route-row').count(), 151);
     await page.screenshot({ path: path.join(shots, 'routes-all-pages.png'), fullPage: true, animations: 'disabled' });
+    paginated = false;
+    for (const width of [320, 390, 1280]) {
+      await page.setViewportSize({ width, height: 844 });
+      history = [1, 8, 12, 24, 48, 168, 169].map((hours, id) => ({ ...first, id, recorded_at: new Date(epoch - hours * 3600000 + 5 * 60000).toISOString(), latitude: first.latitude + id * 0.001 }));
+      await page.goto(`${base}/routes`);
+      const dropdown = page.getByRole('combobox', { name: 'بازهٔ زمانی', exact: true });
+      await dropdown.waitFor();
+      assert.equal(await dropdown.inputValue(), '24');
+      assert.deepEqual(await dropdown.locator('option').allTextContents(), ['۸ ساعت گذشته', '۱۲ ساعت گذشته', '۲۴ ساعت گذشته', '۴۸ ساعت گذشته', 'یک هفتهٔ گذشته']);
+      assert.equal(await page.locator('.route-interval input,.route-interval button').count(), 0);
+      assert.equal(await dropdown.evaluate(el => getComputedStyle(el).direction), 'rtl');
+      assert.equal(await dropdown.evaluate(el => el.scrollWidth <= el.clientWidth && parseFloat(getComputedStyle(el).fontSize) >= 16), true);
+      await page.locator('.route-history > summary').click();
+      assert.equal(await page.locator('.route-row').count(), 4);
+      await dropdown.focus();
+      await dropdown.press('ArrowDown');
+      await dropdown.press('Enter');
+      assert.equal(await dropdown.inputValue(), '48');
+      assert.equal(await page.locator('.route-row').count(), 5);
+      for (const [value, count] of [['8', 2], ['12', 3], ['24', 4], ['48', 5], ['168', 6]]) {
+        await dropdown.selectOption(value);
+        assert.equal(await page.locator('.route-row').count(), count);
+        assert.equal(await page.locator('.route-recorded-point').count(), count);
+      }
+      assert.match(await page.locator('#route-interval-coverage').innerText(), /۱۰۰ رکورد آخر/);
+      await dropdown.selectOption('24');
+      await page.locator('.full-map .leaflet-container').scrollIntoViewIfNeeded();
+      await page.locator('.full-map .route-map-marker.end').click();
+      const filteredPopupText = await waitForPopup();
+      assert.match(filteredPopupText, /0 km\/h/);
+      await page.locator('.leaflet-popup-close-button').click();
+      await dropdown.scrollIntoViewIfNeeded();
+      await page.screenshot({ path: path.join(shots, `interval-${width}.png`), animations: 'disabled' });
+      history = [{ ...first, recorded_at: new Date(epoch - 169 * 3600000).toISOString() }];
+      await page.goto(`${base}/routes`);
+      await page.getByRole('combobox', { name: 'بازهٔ زمانی', exact: true }).selectOption('168');
+      await page.locator('.route-history > summary').click();
+      assert.equal(await page.locator('.route-row').count(), 0);
+      assert.match(await page.locator('.map-empty').innerText(), /در داده‌های دریافت‌شده، نقطه‌ای در این بازه پیدا نشد/);
+      assert.match(await page.locator('.route-history .empty-state').innerText(), /ممکن است تاریخچهٔ دیگری روی سرور موجود باشد/);
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+    }
     assert.deepEqual(errors, []);
     assert.deepEqual(unexpected, []);
-    console.log('PASS: route markers at 320/390/1280; chronological order; heading/missing speed; single/overlapping positions; popups; original links and line; three pages/151 points; overlap list details; interval filtering/reset');
+    console.log('PASS: route markers at 320/390/1280; chronological order; heading/missing speed; single/overlapping positions; popups; original links and line; three pages/151 points; overlap list details; all five rolling intervals/default/keyboard/empty coverage at 320/390/1280');
   } finally { await browser.close(); }
 })().catch(error => { console.error(error); process.exitCode = 1; });
