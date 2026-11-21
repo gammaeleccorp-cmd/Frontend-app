@@ -24,7 +24,7 @@ function VehicleIcon({ heading }) {
 
 function PointDetails({ marker }) {
   return <>
-    <Tooltip direction="auto" offset={[8, 0]} className="route-hover-tooltip" opacity={1}>
+    <Tooltip direction="top" offset={[0, -10]} className="route-hover-tooltip" opacity={1}>
       <RecordedPointPopup marker={marker} />
     </Tooltip>
     <Popup maxWidth={240} minWidth={160}>
