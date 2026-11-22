@@ -62,7 +62,7 @@ export function describeCommand(command, { clientTimedOut = false } = {}) {
     waiting: ["info", "فرمان ارسال شد؛ منتظر پاسخ دستگاه…"],
     acknowledged: ["info", "دستگاه دریافت فرمان را اعلام کرد؛ منتظر نتیجهٔ نهایی…"],
     success: relayState
-      ? [mismatch ? "warning" : "success", mismatch ? "دستگاه پاسخ داد، اما وضعیت گزارش‌شده با فرمان درخواستی یکسان نیست." : "دستگاه انجام فرمان را تأیید کرد."]
+      ? [mismatch ? "warning" : "success", mismatch ? "دستگاه پاسخ داد، اما وضعیت گزارش‌شده با فرمان درخواستی یکسان نیست." : (relayState === "ON" ? "رله فعال شد" : "رله خاموش شد")]
       : ["warning", "دستگاه پاسخ موفق داد، اما وضعیت رله را گزارش نکرد."],
     device_error: ["error", "دستگاه خطا گزارش کرد؛ فرمان انجام نشد."],
     failed: ["error", "ارسال فرمان به دستگاه ناموفق بود."],
