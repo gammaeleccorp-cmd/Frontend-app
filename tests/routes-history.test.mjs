@@ -45,6 +45,14 @@ test('Routes renders each recorded timestamp beside its own exact Neshan link', 
     assert.doesNotMatch(html, /<details[^>]*\bopen/);
     assert.match(html, /2 مورد/);
     assert.match(html, /route-history-chevron/);
+    // Route, car markers and GEO tools must share exactly one MapContainer.
+    const withGeo=renderToStaticMarkup(createElement(RoutesPage, {
+      routeHistory:[older,newer],deviceCode:'NG-0001',
+      geofence:{value:{supports_polygon:true,configured:false},loading:false,error:'',save:()=>true},
+    }));
+    assert.equal((withGeo.match(/class="map-wrap full-map geo-map"/g)||[]).length,1);
+    assert.equal((withGeo.match(/class="geo-fab"/g)||[]).length,1);
+    assert.doesNotMatch(withGeo,/fence-editor|geo-editor/);
     assert.doesNotMatch(html, /route-interval|بازهٔ زمانی/);
     const rows = [...html.matchAll(/<article class="route-row">(.*?)<\/article>/g)].map(match => match[1]);
     assert.equal(rows.length, 2);

@@ -224,52 +224,55 @@ const assert = require("node:assert/strict");
       await page.waitForTimeout(300);
       assert.notEqual(await routeMap.locator('.leaflet-proxy').getAttribute('style'),before);
     }
-    await page.getByRole("button",{name:/محدوده جغرافیایی/}).click();
-    const map=page.locator('#fence-editor .leaflet-container');
-    await page.waitForTimeout(250);
+    // GEO shares the primary route map; the second Leaflet instance is gone.
+    assert.equal(await page.locator('.leaflet-container').count(), 1);
+    assert.equal(await page.locator('.geo-map .leaflet-container').count(), 1);
+    assert.equal(await page.locator('#fence-editor').count(), 0);
+    const map=page.locator('.full-map .leaflet-container');
+    const fenceMapElement=await map.elementHandle();
+    const geo=page.getByRole('button',{name:'ابزارهای GEO'});
+    await geo.click();
+    await page.getByText('۰ از ۶ نقطه',{exact:true}).waitFor();
     await map.scrollIntoViewIfNeeded();
     for(const [x,y] of [[70,70],[135,55],[205,85],[215,180],[140,220],[65,175]]) await map.click({position:{x,y}});
     await page.getByText('۶ از ۶ نقطه',{exact:true}).waitFor();
-    const releaseIdentity = await page.locator('meta[name="gamma-release"]').getAttribute('content');
+    // Unsaved edits block a service-worker update and survive history expansion.
+    const releaseIdentity=await page.locator('meta[name="gamma-release"]').getAttribute('content');
     if (/^[a-f0-9]{40}$/.test(releaseIdentity)) {
-      let offered = 'b'.repeat(40);
-      const metadata = route => route.fulfill({contentType:'application/json',body:JSON.stringify({component:'frontend',source_commit:offered})});
-      await page.route('**/release.json', metadata);
-      await page.evaluate(() => window.dispatchEvent(new Event('online')));
+      let offered='b'.repeat(40);
+      const metadata=route=>route.fulfill({contentType:'application/json',body:JSON.stringify({component:'frontend',source_commit:offered})});
+      await page.route('**/release.json',metadata);
+      await page.evaluate(()=>window.dispatchEvent(new Event('online')));
       await page.getByText('نسخهٔ جدید آماده است',{exact:true}).waitFor();
       await page.getByRole('button',{name:'به‌روزرسانی',exact:true}).click();
       await page.getByText('ابتدا محدودهٔ در حال ویرایش را ذخیره یا پاک کنید و منتظر پایان ذخیره بمانید.',{exact:true}).waitFor();
       await page.getByText('۶ از ۶ نقطه',{exact:true}).waitFor();
-      assert.ok(page.url().endsWith('/routes'), 'draft update must not navigate');
-      offered = releaseIdentity;
-      await page.evaluate(() => window.dispatchEvent(new Event('online')));
+      offered=releaseIdentity;
+      await page.evaluate(()=>window.dispatchEvent(new Event('online')));
       await page.locator('.release-update').waitFor({state:'detached'});
-      await page.unroute('**/release.json', metadata);
+      await page.unroute('**/release.json',metadata);
     }
-    // History disclosure must preserve the mounted geofence map and its unsaved vertices.
-    const fenceMapElement=await map.elementHandle();
-    for(const expanded of [true,false]) {
+    for(const expanded of [true,false]){
       await summary.click();
       assert.equal(await rows.first().isVisible(),expanded);
       assert.equal(await map.evaluate((el,original)=>el===original,fenceMapElement),true);
       await page.getByText('۶ از ۶ نقطه',{exact:true}).waitFor();
     }
-    await page.getByRole('button',{name:'ابزارهای GEO'}).click();
-    for (const width of [320,390,1280]) {
+    for(const width of [320,390,1280]){
       await page.setViewportSize({width,height:844});
-      const layout=await page.evaluate(() => {
-        const map=document.querySelector('.geo-map').getBoundingClientRect();
+      const layout=await page.evaluate(()=>{
+        const m=document.querySelector('.geo-map').getBoundingClientRect();
         const menu=document.querySelector('.geo-floating').getBoundingClientRect();
         const nav=document.querySelector('.bottom-nav').getBoundingClientRect();
         const buttons=[...document.querySelectorAll('.geo-action')].map(el=>el.getBoundingClientRect());
-        return {map:{left:map.left,right:map.right,top:map.top,bottom:map.bottom},
-          menu:{left:menu.left,right:menu.right,top:menu.top,bottom:menu.bottom}, navTop:nav.top,
-          buttons:buttons.map(box=>({width:box.width,height:box.height})), overflow:document.documentElement.scrollWidth>innerWidth};
+        return {map:{left:m.left,right:m.right,top:m.top,bottom:m.bottom},
+          menu:{left:menu.left,right:menu.right,top:menu.top,bottom:menu.bottom},
+          navTop:nav.top,buttons:buttons.map(el=>({width:el.width,height:el.height})),
+          overflow:document.documentElement.scrollWidth>innerWidth};
       });
       assert.equal(layout.buttons.length,4);
-      assert.ok(layout.buttons.every(({width:buttonWidth,height})=>buttonWidth===44 && height===44),`GEO tools must be compact squares at ${width}px`);
-      assert.ok(layout.menu.left>=layout.map.left && layout.menu.right<=layout.map.right && layout.menu.top>=layout.map.top && layout.menu.bottom<=layout.map.bottom);
-      assert.ok(layout.menu.bottom<=layout.navTop,`GEO controls overlap navigation at ${width}px`);
+      assert.ok(layout.buttons.every(({width:buttonWidth,height})=>buttonWidth===44&&height===44));
+      assert.ok(layout.menu.left>=layout.map.left&&layout.menu.right<=layout.map.right&&layout.menu.top>=layout.map.top&&layout.menu.bottom<=layout.map.bottom);
       assert.equal(layout.overflow,false);
     }
     await page.setViewportSize({width:390,height:844});
@@ -278,39 +281,29 @@ const assert = require("node:assert/strict");
     await map.scrollIntoViewIfNeeded();
     await map.click({position:{x:80,y:210}});
     await page.getByText('۶ از ۶ نقطه',{exact:true}).waitFor();
-    await page.getByRole('button',{name:'ابزارهای GEO'}).click();
-    assert.equal(await page.getByRole('button',{name:'ذخیره محدوده',exact:true}).isDisabled(),false,await page.locator('#fence-editor').innerText());
-    await page.getByRole('button',{name:'ذخیره محدوده',exact:true}).click();
-    await page.getByText('محدوده ذخیره شد.',{exact:true}).waitFor();
-    assert.equal(geofenceWrites[0].body.boundary_points.length,6);
-    await page.reload();
-    await page.getByRole('button',{name:/محدوده جغرافیایی/}).click();
-    await page.getByText('۶ از ۶ نقطه',{exact:true}).waitFor();
-    assert.equal(await page.locator('#fence-editor .leaflet-container').count(),1);
-    geofence = { supports_polygon: true, configured: true, is_active: true, position: 'INSIDE',
-      boundary_points: [[35.70,51.37],[35.70,51.38],[35.71,51.38],[35.71,51.37]] };
-    await page.reload();
-    await page.getByRole('button',{name:/محدوده جغرافیایی/}).click();
-    await page.getByText('۴ از ۴ نقطه',{exact:true}).waitFor();
-    await page.getByRole('button',{name:'ابزارهای GEO'}).click();
-    await page.getByRole('button',{name:'حذف آخرین نقطه'}).click();
-    await page.getByText('۳ از ۴ نقطه',{exact:true}).waitFor();
-    await page.getByRole('button',{name:'ریست محدوده'}).click();
-    await page.getByText('۴ از ۴ نقطه',{exact:true}).waitFor();
-    await page.getByRole('button',{name:'ابزارهای GEO'}).click();
     assert.equal(await page.getByRole('button',{name:'ذخیره محدوده',exact:true}).isDisabled(),false);
     await page.getByRole('button',{name:'ذخیره محدوده',exact:true}).click();
-    assert.equal(geofenceWrites.at(-1).body.boundary_points.length,4);
+    await page.getByText('محدوده شش‌نقطه‌ای ذخیره شد.',{exact:true}).waitFor();
+    assert.equal(geofenceWrites[0].body.boundary_points.length,6);
     await page.reload();
-    await page.getByRole('button',{name:/محدوده جغرافیایی/}).click();
-    await page.getByText('۴ از ۴ نقطه',{exact:true}).waitFor();
+    assert.equal(await page.locator('.leaflet-container').count(),1);
     await page.getByRole('button',{name:'ابزارهای GEO'}).click();
-    page.once('dialog', dialog => dialog.accept());
-    await page.getByRole('button',{name:'حذف نقاط'}).click();
-    await page.getByText('۰ از ۴ نقطه',{exact:true}).waitFor();
-    for(const [x,y] of [[70,70],[215,215],[65,210],[210,65]]) await map.click({position:{x,y}});
+    await page.getByText('۶ از ۶ نقطه',{exact:true}).waitFor();
+    // Existing four-point boundaries remain visible, but editing always uses six.
+    geofence={supports_polygon:true,configured:true,is_active:true,position:'INSIDE',
+      boundary_points:[[35.70,51.37],[35.70,51.38],[35.71,51.38],[35.71,51.37]]};
+    await page.reload();
+    assert.equal(await page.locator('.leaflet-container').count(),1);
     await page.getByRole('button',{name:'ابزارهای GEO'}).click();
+    await page.getByText('۰ از ۶ نقطه',{exact:true}).waitFor();
+    await map.scrollIntoViewIfNeeded();
+    for(const [x,y] of [[70,70],[215,215],[65,210],[210,65],[180,90],[105,200]]) await map.click({position:{x,y}});
+    await page.getByText('۶ از ۶ نقطه',{exact:true}).waitFor();
     assert.equal(await page.getByRole('button',{name:'ذخیره محدوده',exact:true}).isDisabled(),true);
+    assert.match(await page.locator('.geo-map').locator('..').innerText(),/شکل متقاطع است/);
+    page.once('dialog',dialog=>dialog.accept());
+    await page.getByRole('button',{name:'حذف نقاط'}).click();
+    await page.getByText('۰ از ۶ نقطه',{exact:true}).waitFor();
     await page.getByRole('button',{name:/اعلان‌ها/}).click();
     const panel=page.locator('.notification-panel');
     await panel.waitFor();

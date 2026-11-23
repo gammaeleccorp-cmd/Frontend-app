@@ -35,9 +35,8 @@ const hoverPopupHandlers = {
   mouseover(event) {
     if (isMouseHover(event)) event.target.openPopup();
   },
-  mouseout(event) {
-    if (isMouseHover(event)) event.target.closePopup();
-  },
+  // Leave click/tap-opened popups intact; mouseout can fire while the user
+  // moves from the marker into the popup and would otherwise close it.
 };
 
 function PointDetails({ marker }) {

@@ -6,7 +6,7 @@ import RouteMarkers from "../components/RouteMarkers";
 import { routeMarkers } from "../utils/routeMarkers.mjs";
 import GeofenceEditor from "../components/GeofenceEditor";
 import { useState } from "react";
-import { MapContainer, TileLayer, Polyline } from "react-leaflet";
+import { Polyline } from "react-leaflet";
 import { ChevronDown, MapPinned, RefreshCcw } from "lucide-react";
 import PageHeader from "../components/PageHeader";
 import StatusBadge from "../components/StatusBadge";
@@ -46,17 +46,12 @@ export default function RoutesPage({ geofence, routePoints = [], routeHistory = 
       action={<StatusBadge tone={online ? "success" : "warning"}>{online ? "داده تازه" : "داده قدیمی"}</StatusBadge>} />
 
     <section className="panel map-panel">
-      <div className="map-wrap full-map">
-        {lastPoint ? <>
-          <MapContainer key={`${lastPoint.join(",")}-${mapVersion}`} center={lastPoint} zoom={13} scrollWheelZoom={false}>
-            <TileLayer attribution="&copy; OpenStreetMap contributors" url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-              eventHandlers={{ tileerror: () => setTilesFailed(true), tileload: () => setTilesFailed(false) }} />
-            {points.length > 1 && <Polyline positions={points} color="#ff6b1a" />}
-            <RouteMarkers history={history} />
-          </MapContainer>
-          {tilesFailed && <div className="map-error-overlay" role="alert">کاشی‌های نقشه بارگذاری نشدند. نقاط ثبت‌شده از فهرست پایین قابل مشاهده‌اند.<button type="button" className="secondary-btn" onClick={retryMap}>تلاش مجدد</button></div>}
-        </> : <div className="empty-state map-empty">{historyError || EMPTY_HISTORY}</div>}
-      </div>
+      {lastPoint || geofence ? <GeofenceEditor key={deviceCode} fence={geofence} deviceCode={deviceCode}
+        lastPoint={lastPoint || routePoints.at(-1)} mapVersion={mapVersion} tilesFailed={tilesFailed}
+        onTileError={() => setTilesFailed(true)} onTileLoad={() => setTilesFailed(false)} onRetryMap={retryMap}>
+        {points.length > 1 && <Polyline positions={points} color="#ff6b1a" />}
+        <RouteMarkers history={history} />
+      </GeofenceEditor> : <div className="map-wrap full-map"><div className="empty-state map-empty">{historyError || EMPTY_HISTORY}</div></div>}
       {historyError && <p className="form-error" role="alert">{historyError}</p>}
       <button type="button" className="secondary-btn route-refresh" disabled={syncing} onClick={onSync}>
         <RefreshCcw size={16} className={syncing ? "spin" : ""} />{syncing ? "در حال به‌روزرسانی..." : "به‌روزرسانی موقعیت‌ها"}
@@ -77,6 +72,5 @@ export default function RoutesPage({ geofence, routePoints = [], routeHistory = 
       {!history.length && <div className="empty-state">{EMPTY_HISTORY}</div>}
     </details>
     </section>
-    {geofence && <GeofenceEditor key={deviceCode} fence={geofence} deviceCode={deviceCode} lastPoint={history[0]?.coordinates || routePoints.at(-1)} />}
   </section>;
 }
