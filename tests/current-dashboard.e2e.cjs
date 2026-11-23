@@ -286,6 +286,7 @@ const assert = require("node:assert/strict");
     await page.getByText('محدوده شش‌نقطه‌ای ذخیره شد.',{exact:true}).waitFor();
     assert.equal(geofenceWrites[0].body.boundary_points.length,6);
     await page.reload();
+    await page.locator('.full-map .leaflet-container').waitFor();
     assert.equal(await page.locator('.leaflet-container').count(),1);
     await page.getByRole('button',{name:'ابزارهای GEO'}).click();
     await page.getByText('۶ از ۶ نقطه',{exact:true}).waitFor();
@@ -293,6 +294,7 @@ const assert = require("node:assert/strict");
     geofence={supports_polygon:true,configured:true,is_active:true,position:'INSIDE',
       boundary_points:[[35.70,51.37],[35.70,51.38],[35.71,51.38],[35.71,51.37]]};
     await page.reload();
+    await page.locator('.full-map .leaflet-container').waitFor();
     assert.equal(await page.locator('.leaflet-container').count(),1);
     await page.getByRole('button',{name:'ابزارهای GEO'}).click();
     await page.getByText('۰ از ۶ نقطه',{exact:true}).waitFor();
