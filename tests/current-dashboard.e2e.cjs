@@ -19,7 +19,7 @@ const assert = require("node:assert/strict");
     const unexpected = [];
     const pageErrors = [];
     const geofenceWrites = [];
-    let geofence = { supports_polygon: true, configured: false, is_active: false, position: "UNKNOWN" };
+    let geofence = { supports_six_point_polygon: true, supports_polygon: true, configured: false, is_active: false, position: "UNKNOWN" };
     page.on("pageerror", e => pageErrors.push(e.message));
     // Keep map controls interactive without relying on the external tile service.
     const tile=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aX1sAAAAASUVORK5CYII=','base64');
@@ -52,7 +52,7 @@ const assert = require("node:assert/strict");
         else if (method === "PUT") {
           const body = request.postDataJSON();
           geofenceWrites.push({ method, body });
-          geofence = { ...body, supports_polygon: true, configured: true, is_active: true, position: "INSIDE", last_recorded_at: "2026-10-31T08:00:00Z" };
+          geofence = { ...body, supports_six_point_polygon: true, supports_polygon: true, configured: true, is_active: true, position: "INSIDE", last_recorded_at: "2026-10-31T08:00:00Z" };
           data = geofence;
         } else if (method === "DELETE") {
           geofenceWrites.push({ method });
