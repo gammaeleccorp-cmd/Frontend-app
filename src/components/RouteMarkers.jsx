@@ -31,17 +31,25 @@ function isMouseHover(event) {
     event.originalEvent?.sourceCapabilities?.firesTouchEvents !== true;
 }
 
+function openSinglePopup(layer) {
+  // The recorded point and start/end symbol may overlap. Close another
+  // marker's card before opening this one, even on an emulated pointer.
+  const map = layer._map;
+  if (!map) return;
+  map.closePopup();
+  layer.openPopup();
+}
+
 const hoverPopupHandlers = {
   mouseover(event) {
-    if (isMouseHover(event)) event.target.openPopup();
+    if (isMouseHover(event)) openSinglePopup(event.target);
   },
   click(event) {
-    // Leaflet's built-in click handler toggles an already-hovered popup.
-    // Explicitly open it afterwards, including for touchscreen taps.
-    queueMicrotask(() => event.target.openPopup());
+    // Leaflet may toggle an existing hover popup during a click. Reopen
+    // one card after its own built-in click and the map click handlers.
+    queueMicrotask(() => openSinglePopup(event.target));
   },
-  // Leave click/tap-opened popups intact; mouseout can fire while the user
-  // moves from the marker into the popup and would otherwise close it.
+  // Keep the card usable when moving the pointer from a marker into it.
 };
 
 function PointDetails({ marker }) {
