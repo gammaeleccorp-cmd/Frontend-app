@@ -48,6 +48,7 @@ test('Routes renders each recorded timestamp beside its own exact Neshan link', 
     assert.doesNotMatch(html, /route-interval|بازهٔ زمانی/);
     const rows = [...html.matchAll(/<article class="route-row">(.*?)<\/article>/g)].map(match => match[1]);
     assert.equal(rows.length, 2);
+    assert.match(html, /مسیریابی با نشان/);
     for (const [index, point] of [newer, older].entries()) {
       assert.ok(rows[index].includes(`<time dateTime="${point.recordedAt}">${formatTelemetryTime(point.recordedAt)}</time>`));
       assert.ok(rows[index].includes(`href="https://nshn.ir/?lat=${point.coordinates[0]}&amp;lng=${point.coordinates[1]}" target="_blank" rel="noopener noreferrer">مشاهده در نشان</a>`));
@@ -61,6 +62,7 @@ test('Routes renders each recorded timestamp beside its own exact Neshan link', 
     assert.match(full, /151 مورد/);
     const empty = renderToStaticMarkup(createElement(RoutesPage, {}));
     assert.match(empty, /هنوز نقطه‌ای برای این دستگاه دریافت نشده است/);
+    assert.doesNotMatch(empty, /مسیریابی با نشان/);
     assert.doesNotMatch(empty, /nshn.ir/);
     const { default: RecordedPointPopup } = await vite.ssrLoadModule('/src/components/RecordedPointPopup.jsx');
     for (const records of [[older, newer], [{ ...older, speed: null }], [older, { ...newer, coordinates: older.coordinates }]]) {

@@ -332,6 +332,13 @@ const assert = require("node:assert/strict");
       const header=await page.locator('.app-header').boundingBox();
       assert.ok(Math.abs(box.x+box.width/2-header.x-header.width/2)<2);
     }
+    await context.grantPermissions(['geolocation']);
+    await context.setGeolocation({latitude:35.74,longitude:51.42});
+    await page.getByRole('button',{name:'مسیریابی با نشان'}).click();
+    await page.waitForURL(url=>url.hostname==='nshn.ir' && url.searchParams.get('vehicle')==='d');
+    const destination=new URL(page.url());
+    assert.equal(destination.searchParams.get('origin'),'35.74,51.42');
+    assert.equal(destination.searchParams.get('destination'),'36.12345678,52.87654321');
     assert.deepEqual(unexpected, [], "Unexpected API requests");
     assert.deepEqual(pageErrors, [], "Browser errors");
 
