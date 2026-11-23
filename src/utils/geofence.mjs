@@ -7,9 +7,10 @@ export function validFence(center, radius) {
 }
 
 export function crossedFence(old, next) {
+  const sameBoundary = JSON.stringify(old?.boundary_points ?? null) === JSON.stringify(next?.boundary_points ?? null);
   return Boolean(old?.is_active && next?.is_active &&
     ["INSIDE", "OUTSIDE"].includes(old.position) &&
     ["INSIDE", "OUTSIDE"].includes(next.position) && old.position !== next.position &&
-    ["latitude", "longitude", "radius_m"].every((key) => old[key] === next[key]) &&
+    ["latitude", "longitude", "radius_m"].every((key) => old[key] === next[key]) && sameBoundary &&
     Date.parse(next.last_recorded_at) > Date.parse(old.last_recorded_at));
 }
