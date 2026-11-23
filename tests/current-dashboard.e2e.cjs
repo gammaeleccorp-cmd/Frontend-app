@@ -123,7 +123,7 @@ const assert = require("node:assert/strict");
     await page.waitForURL('**/home');
     await page.locator(".tracker-overview").waitFor();
     assert.equal(await page.locator('#device-code').count(),0);
-    assert.equal(await page.locator('a[href*="neshan.org"]').count(),0);
+    assert.equal(await page.locator('a[href*="nshn.ir"]').count(),0);
     await page.goto(`${process.env.E2E_BASE || "http://127.0.0.1:5178"}/vehicle`);
     await page.getByRole('heading', { name: 'دستگاه نگهبان', exact: true }).waitFor();
     for (const width of [320,390,1280]) {
@@ -184,13 +184,13 @@ const assert = require("node:assert/strict");
     });
     await page.emulateMedia({reducedMotion:'no-preference'});
     assert.equal(await rows.count(),2);
-    assert.equal(await page.locator('a[href*="neshan.org"]').count(),2);
+    assert.equal(await page.locator('a[href*="nshn.ir"]').count(),2);
     const expected=[
-      ['2026-11-16T09:30:00Z','https://neshan.org/maps/@36.12345678,52.87654321,16z'],
-      ['2026-11-16T08:00:00Z','https://neshan.org/maps/@35.70857123,51.37728456,16z']
+      ['2026-11-16T09:30:00Z','https://nshn.ir/?lat=36.12345678&lng=52.87654321'],
+      ['2026-11-16T08:00:00Z','https://nshn.ir/?lat=35.70857123&lng=51.37728456']
     ];
     const opened=[];
-    await context.route('https://neshan.org/**',async route=>{
+    await context.route('https://nshn.ir/**',async route=>{
       opened.push(route.request().url());
       await route.fulfill({contentType:'text/html',body:'<title>Recorded point</title>'});
     });
@@ -228,8 +228,8 @@ const assert = require("node:assert/strict");
     const map=page.locator('#fence-editor .leaflet-container');
     await page.waitForTimeout(250);
     await map.scrollIntoViewIfNeeded();
-    for(const [x,y] of [[70,70],[180,65],[205,200],[80,210]]) await map.click({position:{x,y}});
-    await page.getByText('۴ از ۴',{exact:true}).waitFor();
+    for(const [x,y] of [[70,70],[135,55],[205,85],[215,180],[140,220],[65,175]]) await map.click({position:{x,y}});
+    await page.getByText('۶ از ۶',{exact:true}).waitFor();
     const releaseIdentity = await page.locator('meta[name="gamma-release"]').getAttribute('content');
     if (/^[a-f0-9]{40}$/.test(releaseIdentity)) {
       let offered = 'b'.repeat(40);
@@ -239,7 +239,7 @@ const assert = require("node:assert/strict");
       await page.getByText('نسخهٔ جدید آماده است',{exact:true}).waitFor();
       await page.getByRole('button',{name:'به‌روزرسانی',exact:true}).click();
       await page.getByText('ابتدا محدودهٔ در حال ویرایش را ذخیره یا پاک کنید و منتظر پایان ذخیره بمانید.',{exact:true}).waitFor();
-      await page.getByText('۴ از ۴',{exact:true}).waitFor();
+      await page.getByText('۶ از ۶',{exact:true}).waitFor();
       assert.ok(page.url().endsWith('/routes'), 'draft update must not navigate');
       offered = releaseIdentity;
       await page.evaluate(() => window.dispatchEvent(new Event('online')));
@@ -252,19 +252,23 @@ const assert = require("node:assert/strict");
       await summary.click();
       assert.equal(await rows.first().isVisible(),expanded);
       assert.equal(await map.evaluate((el,original)=>el===original,fenceMapElement),true);
-      await page.getByText('۴ از ۴',{exact:true}).waitFor();
+      await page.getByText('۶ از ۶',{exact:true}).waitFor();
     }
+    await page.getByRole('button',{name:'ابزارهای GEO'}).click();
     await page.getByRole('button',{name:'حذف آخرین نقطه'}).click();
-    await page.getByText('۳ از ۴',{exact:true}).waitFor();
+    await page.getByText('۵ از ۶',{exact:true}).waitFor();
     await map.scrollIntoViewIfNeeded();
     await map.click({position:{x:80,y:210}});
-    await page.getByText('۴ از ۴',{exact:true}).waitFor();
+    await page.getByText('۶ از ۶',{exact:true}).waitFor();
     assert.equal(await page.getByRole('button',{name:'ذخیره محدوده',exact:true}).isDisabled(),false,await page.locator('#fence-editor').innerText());
     await page.getByRole('button',{name:'ذخیره محدوده',exact:true}).click();
     await page.getByText('محدوده ذخیره شد.',{exact:true}).waitFor();
-    assert.equal(geofenceWrites[0].body.boundary_points.length,4);
-    await page.getByRole('button',{name:'شروع دوباره'}).click();
-    for(const [x,y] of [[70,70],[200,210],[70,210],[200,70]]) await map.click({position:{x,y}});
+    assert.equal(geofenceWrites[0].body.boundary_points.length,6);
+    await page.getByRole('button',{name:'ابزارهای GEO'}).click();
+    await page.getByRole('button',{name:'حذف نقاط'}).click();
+    await page.getByText('۰ از ۶',{exact:true}).waitFor();
+    for(const [x,y] of [[70,70],[215,215],[65,210],[210,65],[140,140],[160,170]]) await map.click({position:{x,y}});
+    await page.getByRole('button',{name:'ابزارهای GEO'}).click();
     assert.equal(await page.getByRole('button',{name:'ذخیره محدوده',exact:true}).isDisabled(),true);
     await page.getByRole('button',{name:/اعلان‌ها/}).click();
     const panel=page.locator('.notification-panel');
