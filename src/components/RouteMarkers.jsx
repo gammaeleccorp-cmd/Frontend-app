@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { Flag } from 'lucide-react';
 import { divIcon } from 'leaflet';
-import { CircleMarker, Marker, Popup, Tooltip } from 'react-leaflet';
+import { CircleMarker, Marker, Popup } from 'react-leaflet';
 import RecordedPointPopup from './RecordedPointPopup';
 import { recentRecordedPoints as recordedRoutePoints } from '../utils/flag15.mjs';
 import { routeMarkers } from '../utils/routeMarkers.mjs';
@@ -22,15 +22,28 @@ function VehicleIcon({ heading }) {
   </svg>;
 }
 
+// Mouse users get a hover card; touchscreens use Leaflet's built-in tap/click
+// popup handling. One Popup avoids duplicate detail cards over the same point.
+function isMouseHover(event) {
+  return typeof window !== 'undefined' &&
+    window.matchMedia?.('(hover: hover) and (pointer: fine)').matches &&
+    event.originalEvent?.pointerType !== 'touch' &&
+    event.originalEvent?.sourceCapabilities?.firesTouchEvents !== true;
+}
+
+const hoverPopupHandlers = {
+  mouseover(event) {
+    if (isMouseHover(event)) event.target.openPopup();
+  },
+  mouseout(event) {
+    if (isMouseHover(event)) event.target.closePopup();
+  },
+};
+
 function PointDetails({ marker }) {
-  return <>
-    <Tooltip direction="top" offset={[0, -10]} className="route-hover-tooltip" opacity={1}>
-      <RecordedPointPopup marker={marker} />
-    </Tooltip>
-    <Popup maxWidth={240} minWidth={160}>
-      <RecordedPointPopup marker={marker} />
-    </Popup>
-  </>;
+  return <Popup className="route-detail-popup" autoPan={false} maxWidth={240} minWidth={160}>
+    <RecordedPointPopup marker={marker} />
+  </Popup>;
 }
 
 function RecordedMarker({ marker }) {
@@ -48,7 +61,7 @@ function RecordedMarker({ marker }) {
       {marker.kind === 'end' ? <VehicleIcon heading={marker.heading} /> : <Flag size={23} />}
       {marker.includesStart && <span className="route-start-dot" />}
     </span>, element)}
-    <Marker position={marker.point.coordinates} icon={icon} title={marker.label} alt={marker.label} zIndexOffset={marker.kind === 'end' ? 200 : 100}>
+    <Marker position={marker.point.coordinates} icon={icon} title={marker.label} alt={marker.label} zIndexOffset={marker.kind === 'end' ? 200 : 100} eventHandlers={hoverPopupHandlers}>
       <PointDetails marker={marker} />
     </Marker>
   </>;
@@ -57,7 +70,7 @@ function RecordedMarker({ marker }) {
 export default function RouteMarkers({ history }) {
   const markers = routeMarkers(history);
   return <>
-    {recordedRoutePoints(history, Infinity).map((point, index) => <CircleMarker className="route-recorded-point" key={`${point.id}-${index}`} center={point.coordinates} radius={7} pathOptions={{ color: '#fff', weight: 2, fillColor: '#ff6b1a', fillOpacity: 1 }}>
+    {recordedRoutePoints(history, Infinity).map((point, index) => <CircleMarker className="route-recorded-point" key={`${point.id}-${index}`} center={point.coordinates} radius={7} pathOptions={{ color: '#fff', weight: 2, fillColor: '#ff6b1a', fillOpacity: 1 }} eventHandlers={hoverPopupHandlers}>
       <PointDetails marker={{ label: 'نقطه ثبت‌شده', points: [point] }} />
     </CircleMarker>)}
     {markers.map(marker => <RecordedMarker key={marker.kind} marker={marker} />)}

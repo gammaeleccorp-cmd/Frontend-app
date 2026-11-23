@@ -839,17 +839,12 @@ button:disabled { opacity: .55; cursor: not-allowed; }
 .geofence-card > small { grid-column: 2; color: #b9bbc1; }
 .geofence-card > button { grid-column: 3; grid-row: 1 / 4; }
 .route-record-details summary { cursor: pointer; padding-block: 8px; min-height: 44px; color: #c3c5cb; }
-.route-record-details /* Keep popup chrome and its close control inside narrow map cards. */
+/* A single rounded marker card on mouse hover and touchscreen tap. */
 .full-map .leaflet-popup-content { max-width: calc(100cqw - 48px); }
+.full-map .route-detail-popup .leaflet-popup-content-wrapper { border-radius: 16px; }
 .route-point-popup { color: var(--text); }
-.full-map .leaflet-popup-content .route-point-popup,
-.full-map .route-hover-tooltip .route-point-popup { color: #202024; }
-.full-map .route-hover-tooltip {
-  box-sizing: border-box;
-  width: min(224px, calc(100cqw - 24px));
-  white-space: normal;
-}
-.full-map .route-hover-tooltip bdi { white-space: nowrap; }
+.full-map .route-detail-popup .route-point-popup { color: #202024; }
+.full-map .route-detail-popup .route-point-popup bdi { white-space: nowrap; }
 @media (max-width: 400px) {
   .negahban-metrics .geofence-card { grid-template-columns: auto minmax(0, 1fr); }
   .geofence-card > button { grid-column: 1 / -1; grid-row: auto; justify-self: center; }
