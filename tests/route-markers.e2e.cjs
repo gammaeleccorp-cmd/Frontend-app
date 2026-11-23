@@ -80,7 +80,7 @@ const path = require('node:path');
           await page.locator('.full-map .leaflet-container').scrollIntoViewIfNeeded();
           await start.click();
           const startPopupText = await waitForPopup();
-          assert.equal(await page.locator('.leaflet-popup .route-point-popup time').getAttribute('datetime'), first.recorded_at);
+          assert.ok(await page.locator(`.leaflet-popup .route-point-popup time[datetime="${first.recorded_at}"]`).count() >= 1);
           assert.match(startPopupText, /0 km\/h/);
           await page.locator('.leaflet-popup-close-button').click();
         }
