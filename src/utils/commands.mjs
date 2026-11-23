@@ -78,7 +78,10 @@ export function describeCommand(command, { clientTimedOut = false } = {}) {
 export function commandErrorMessage(error) {
   switch (error?.status) {
     case 404: return "این دستگاه برای حساب شما پیدا نشد.";
-    case 400: return "این فرمان برای دستگاه شما مجاز نیست.";
+    case 400: {
+      const detail = error.payload?.detail;
+      return typeof detail === "string" && detail.trim() ? detail : "این فرمان برای دستگاه شما مجاز نیست.";
+    }
     case 429: return "تعداد فرمان‌ها زیاد است؛ کمی بعد دوباره تلاش کنید.";
     case 503: return "ارسال فرمان به دستگاه ممکن نشد؛ کمی بعد دوباره تلاش کنید.";
     case 0: return "ارتباط با سرور برقرار نشد؛ اینترنت را بررسی کنید.";
