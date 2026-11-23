@@ -260,6 +260,7 @@ const assert = require("node:assert/strict");
     await map.scrollIntoViewIfNeeded();
     await map.click({position:{x:80,y:210}});
     await page.getByText('۶ از ۶ نقطه',{exact:true}).waitFor();
+    await page.getByRole('button',{name:'ابزارهای GEO'}).click();
     assert.equal(await page.getByRole('button',{name:'ذخیره محدوده',exact:true}).isDisabled(),false,await page.locator('#fence-editor').innerText());
     await page.getByRole('button',{name:'ذخیره محدوده',exact:true}).click();
     await page.getByText('محدوده ذخیره شد.',{exact:true}).waitFor();
