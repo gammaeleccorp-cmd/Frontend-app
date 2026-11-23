@@ -107,7 +107,7 @@ export default function GeofenceEditor({ fence, deviceCode, lastPoint }) {
               aria-label="ابزارهای GEO" onClick={() => setMenuOpen(v => !v)}>GEO</button>
           </div>
         </div>
-        {invalid && points.length === SIX && <p className="form-error" role="alert">{invalid}</p>}
+        {invalid && points.length === pointLimit && <p className="form-error" role="alert">{invalid}</p>}
         {!existing?.supports_polygon && <p role="status">ذخیره محدوده چندضلعی به پشتیبانی سرور نیاز دارد.</p>}
         {error && <p role="alert">{error}</p>}
         {fence.error && <p role="alert">{fence.error}</p>}
