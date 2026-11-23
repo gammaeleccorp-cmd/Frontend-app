@@ -52,6 +52,7 @@ export default function RoutesPage({ geofence, routePoints = [], routeHistory = 
         {points.length > 1 && <Polyline positions={points} color="#ff6b1a" />}
         <RouteMarkers history={history} />
       </GeofenceEditor> : <div className="map-wrap full-map"><div className="empty-state map-empty">{historyError || EMPTY_HISTORY}</div></div>}
+      {!lastPoint && <div className="empty-state map-empty map-no-location">{historyError || EMPTY_HISTORY}</div>}
       {historyError && <p className="form-error" role="alert">{historyError}</p>}
       <button type="button" className="secondary-btn route-refresh" disabled={syncing} onClick={onSync}>
         <RefreshCcw size={16} className={syncing ? "spin" : ""} />{syncing ? "در حال به‌روزرسانی..." : "به‌روزرسانی موقعیت‌ها"}
