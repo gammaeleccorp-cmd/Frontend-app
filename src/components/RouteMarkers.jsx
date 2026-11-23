@@ -81,10 +81,19 @@ function RecordedMarker({ marker }) {
 
 export default function RouteMarkers({ history }) {
   const markers = routeMarkers(history);
+  // Start/end symbols already own these positions. The underlying route
+  // circles must not steal hover/tap events from the visible car or flag.
+  const symbolPositions = new Set(markers.map(marker => marker.point.coordinates.join(',')));
   return <>
-    {recordedRoutePoints(history, Infinity).map((point, index) => <CircleMarker className="route-recorded-point" key={`${point.id}-${index}`} center={point.coordinates} radius={7} pathOptions={{ color: '#fff', weight: 2, fillColor: '#ff6b1a', fillOpacity: 1 }} eventHandlers={hoverPopupHandlers}>
-      <PointDetails marker={{ label: 'نقطه ثبت‌شده', points: [point] }} />
-    </CircleMarker>)}
+    {recordedRoutePoints(history, Infinity).map((point, index) => {
+      const covered = symbolPositions.has(point.coordinates.join(','));
+      return <CircleMarker className={`route-recorded-point${covered ? ' route-under-symbol' : ''}`}
+        key={`${point.id}-${index}`} center={point.coordinates} radius={7}
+        pathOptions={{ color: '#fff', weight: 2, fillColor: '#ff6b1a', fillOpacity: 1 }}
+        eventHandlers={covered ? undefined : hoverPopupHandlers}>
+        {!covered && <PointDetails marker={{ label: 'نقطه ثبت‌شده', points: [point] }} />}
+      </CircleMarker>;
+    })}
     {markers.map(marker => <RecordedMarker key={marker.kind} marker={marker} />)}
   </>;
 }
