@@ -11,7 +11,7 @@ export function polygonError(points, vertexCount = 4) {
   };
   for(let i=0;i<vertexCount;i++) for(let j=i+1;j<vertexCount;j++) {
     if (j===i+1 || (i===0 && j===vertexCount-1)) continue;
-    if (intersects(points[i],points[(i+1)%vertexCount],points[j],points[(j+1)%vertexCount])) return "ضلع‌های محدوده نباید یکدیگر را قطع کنند.";
+    if (intersects(points[i],points[(i+1)%vertexCount],points[j],points[(j+1)%vertexCount])) return "شکل متقاطع است؛ خط‌های محدوده نباید یکدیگر را قطع کنند.";
   }
   const area=points.reduce((sum,p,i) => {const q=points[(i+1)%vertexCount];return sum+p[0]*q[1]-q[0]*p[1];},0);
   if (Math.abs(area)<1e-12) return "مساحت محدوده باید بیشتر از صفر باشد.";
