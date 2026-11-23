@@ -2,10 +2,14 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {polygonError, liveSpeed, latestPosition, recentRecordedPoints, neshanUrl} from '../src/utils/flag15.mjs';
 test('free boundary and crossed boundary validation',()=>{
- assert.equal(polygonError([[1,1],[1,3],[2,4],[3,3],[3,1],[2,0]]),'');
- assert.ok(polygonError([[1,1],[3,3],[1,3],[3,1],[2,0],[4,0]]));
- assert.ok(polygonError([[1,1],[1,1],[2,3],[3,3],[4,2],[4,1]]));
- assert.ok(polygonError([[1,1],[2,2],[3,3],[4,4],[5,5],[6,6]]));
+ assert.equal(polygonError([[1,1],[1,3],[2,4],[3,3],[3,1],[2,0]],6),'');
+ assert.ok(polygonError([[1,1],[3,3],[1,3],[3,1],[2,0],[4,0]],6));
+ assert.ok(polygonError([[1,1],[1,1],[2,3],[3,3],[4,2],[4,1]],6));
+ assert.ok(polygonError([[1,1],[2,2],[3,3],[4,4],[5,5],[6,6]],6));
+});
+test('four vertices remain the default backend-compatible shape', () => {
+ assert.equal(polygonError([[1,1],[1,3],[3,3],[3,1]]),'');
+ assert.match(polygonError([[1,1],[1,3],[2,4],[3,3],[3,1],[2,0]]),/چهار نقطه/);
 });
 test('recorded speed expires and ACC off wins',()=>{
  const now=Date.now(), sample={recorded_at:new Date(now).toISOString(),speed:10};
@@ -44,8 +48,8 @@ test('recorded history keeps the newest 100 valid points without mutating input'
 });
 
 test('six-point geofence validates vertex count and coordinate ranges', () => {
- assert.match(polygonError([[1,1],[1,2],[2,2],[2,1]]), /شش نقطه/);
- assert.ok(polygonError([[1,1],[1,3],[2,4],[3,3],[3,1],[200,0]]));
+ assert.match(polygonError([[1,1],[1,2],[2,2],[2,1]],6), /شش نقطه/);
+ assert.ok(polygonError([[1,1],[1,3],[2,4],[3,3],[3,1],[200,0]],6));
 });
 test('Neshan vehicle routing intent matches provider format', async () => {
  const {neshanRouteUrl} = await import('../src/utils/flag15.mjs');
