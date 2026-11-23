@@ -50,7 +50,7 @@ test('Routes renders each recorded timestamp beside its own exact Neshan link', 
     assert.equal(rows.length, 2);
     for (const [index, point] of [newer, older].entries()) {
       assert.ok(rows[index].includes(`<time dateTime="${point.recordedAt}">${formatTelemetryTime(point.recordedAt)}</time>`));
-      assert.ok(rows[index].includes(`href="https://nshn.ir/maps/@${point.coordinates.join(',')},16z" target="_blank" rel="noopener noreferrer">مشاهده در نشان</a>`));
+      assert.ok(rows[index].includes(`href="https://nshn.ir/?lat=${point.coordinates[0]}&amp;lng=${point.coordinates[1]}" target="_blank" rel="noopener noreferrer">مشاهده در نشان</a>`));
       assert.ok(rows[index].includes(`${point.speed} km/h`));
     }
     assert.equal((html.match(/nshn.ir/g) || []).length, 2);
