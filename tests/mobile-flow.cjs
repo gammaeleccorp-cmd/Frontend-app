@@ -41,8 +41,8 @@ const path = require('path');
   assert.equal(await page.locator('#mobile').inputValue(),'09111111111');
   await page.locator('#firstName').fill('تست');
   await page.locator('#lastName').fill('کاربر');
-  await page.locator('#birthDate').pressSequentially('1379/01/01');
-  assert.equal(await page.locator('#birthDate').inputValue(),'1379/01/01');
+  await page.locator('#birthDate').pressSequentially('1379.01.01');
+  assert.equal(await page.locator('#birthDate').inputValue(),'1379.01.01');
   await page.locator('#deviceModel').selectOption('LUMINEN');
   assert.equal(await page.locator('input:not([type=checkbox])').count(),4);
   for(const id of ['mobile','birthDate']) {
@@ -61,6 +61,7 @@ const path = require('path');
     throw new Error(`Registration did not continue: ${failure}`);
   }
   await page.waitForURL('**/otp');
+  await page.locator('.otp').first().waitFor({state:'visible'});
   const registration=requests.find(r=>r.body?.registration).body;
   assert.deepEqual(Object.keys(registration.registration).sort(),['birthDate','deviceModel','firstName','lastName']);
   assert.equal(registration.registration.birthDate,'2000-03-20');

@@ -100,7 +100,7 @@ const path = require('node:path');
         await page.locator('.route-history > summary').click();
         for (const record of records) {
           const row = page.locator('.route-row').filter({ has: page.locator(`time[datetime="${record.recorded_at}"]`) });
-          assert.equal(await row.locator('a').getAttribute('href'), `https://neshan.org/maps/@${record.latitude},${record.longitude},16z`);
+          assert.equal(await row.locator('a').getAttribute('href'), `https://nshn.ir/?lat=${record.latitude}&lng=${record.longitude}`);
         }
         assert.equal(await page.locator('.full-map path.leaflet-interactive').count(), records.length + (records.length > 1 ? 1 : 0));
       }

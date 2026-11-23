@@ -1,4 +1,5 @@
-import { recentRecordedPoints, neshanUrl } from "../utils/flag15.mjs";
+import { recentRecordedPoints, neshanUrl, neshanRouteUrl } from "../utils/flag15.mjs";
+import { validCenter } from "../utils/geofence.mjs";
 import RecordedPointPopup from "../components/RecordedPointPopup";
 import { recordedSpeed } from "../utils/routeMarkers.mjs";
 import RouteMarkers from "../components/RouteMarkers";
@@ -16,11 +17,29 @@ const EMPTY_HISTORY = "هنوز نقطه‌ای برای این دستگاه د�
 export default function RoutesPage({ geofence, routePoints = [], routeHistory = [], deviceCode, online, historyError, onSync, syncing = false, onBack }) {
   const [tilesFailed, setTilesFailed] = useState(false);
   const [mapVersion, setMapVersion] = useState(0);
+  const [navigationError, setNavigationError] = useState("");
+  const [locating, setLocating] = useState(false);
   const history = recentRecordedPoints(routeHistory, Infinity);
   const points = history.slice().reverse().map(point => point.coordinates).filter((point) => Array.isArray(point) && point.length === 2 && point.every(Number.isFinite));
   const markers = routeMarkers(history);
   const lastPoint = markers.at(-1)?.point.coordinates || points.at(-1);
   const retryMap = () => { setTilesFailed(false); setMapVersion((version) => version + 1); };
+  const navigateToVehicle = () => {
+    if (!lastPoint || locating) return;
+    setNavigationError("");
+    if (!navigator.geolocation) { setNavigationError("دسترسی به موقعیت شما در این مرورگر ممکن نیست."); return; }
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      ({ coords }) => {
+        setLocating(false);
+        const origin = [coords.latitude, coords.longitude];
+        if (!validCenter(origin)) { setNavigationError("موقعیت دریافتی معتبر نیست."); return; }
+        window.location.assign(neshanRouteUrl(origin, lastPoint));
+      },
+      () => { setLocating(false); setNavigationError("دسترسی به موقعیت شما انجام نشد. مجوز GPS را بررسی کنید."); },
+      { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 },
+    );
+  };
 
   return <section className="page-section">
     <PageHeader eyebrow="ROUTES" title="نقشه و موقعیت‌ها" subtitle={`داده‌های ثبت‌شدهٔ دستگاه ${deviceCode || "—"}`} onBack={onBack}
@@ -42,6 +61,10 @@ export default function RoutesPage({ geofence, routePoints = [], routeHistory = 
       <button type="button" className="secondary-btn route-refresh" disabled={syncing} onClick={onSync}>
         <RefreshCcw size={16} className={syncing ? "spin" : ""} />{syncing ? "در حال به‌روزرسانی..." : "به‌روزرسانی موقعیت‌ها"}
       </button>
+      {lastPoint && <button type="button" className="secondary-btn route-refresh" disabled={locating} onClick={navigateToVehicle}>
+        <MapPinned size={16} aria-hidden="true" />{locating ? "در حال دریافت موقعیت شما..." : "مسیریابی با نشان"}
+      </button>}
+      {navigationError && <p role="alert" className="form-error">{navigationError}</p>}
     <details className="route-history">
       <summary><h3>نقاط ثبت‌شده</h3><span className="muted small-text">{history.length} مورد</span><ChevronDown className="route-history-chevron" size={20} aria-hidden="true" /></summary>
       <div className="route-list">

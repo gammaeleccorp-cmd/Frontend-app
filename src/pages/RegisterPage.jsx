@@ -17,6 +17,7 @@ export default function RegisterPage({ form, onChange, rememberMe, onRememberMeC
         inputMode={key === "mobile" ? "numeric" : "text"}
         dir={key === "mobile" || key === "birthDate" ? "ltr" : "rtl"}
         aria-invalid={Boolean(fieldErrors[key])} />
+      {key === "birthDate" && <small className="field-hint">جداکنندهٔ / یا . قابل استفاده است.</small>}
       {fieldErrors[key] && <small className="field-error" role="alert">{fieldErrors[key]}</small>}
     </label>
   );

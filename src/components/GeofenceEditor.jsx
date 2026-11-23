@@ -1,41 +1,121 @@
 import { useEffect, useState } from "react";
 import { Circle, CircleMarker, MapContainer, Polygon, Polyline, TileLayer, Tooltip, useMap, useMapEvents } from "react-leaflet";
+import { Check, RotateCcw, Trash2, Undo2 } from "lucide-react";
 import { polygonError } from "../utils/flag15.mjs";
 import useUpdateBlocker from "../hooks/useUpdateBlocker";
+
+const MAX_SAFE_POINTS = 4;
+const supportedPointCount = (value) => value?.max_boundary_points === 6 || value?.supports_six_point_polygon === true || value?.boundary_points?.length === 6 ? 6 : MAX_SAFE_POINTS;
+const savedBoundary = (value) => Array.isArray(value?.boundary_points) && value.boundary_points.length === supportedPointCount(value)
+  ? value.boundary_points.map(point => [...point]) : [];
+
 function MapActions({ open, onPoint }) {
- const map = useMap();
- useEffect(() => { if (open) { const timer=setTimeout(() => map.invalidateSize(),220); return () => clearTimeout(timer); } },[open,map]);
- useMapEvents({ click: e => { if (!e.originalEvent?.target?.closest?.('.leaflet-control')) onPoint([e.latlng.lat,e.latlng.lng]); } });
- return null;
+  const map = useMap();
+  useEffect(() => {
+    if (open) {
+      const timer = setTimeout(() => map.invalidateSize(), 220);
+      return () => clearTimeout(timer);
+    }
+  }, [open, map]);
+  useMapEvents({ click: e => {
+    if (!e.originalEvent?.target?.closest?.(".leaflet-control, .geo-floating, .geo-summary")) onPoint([e.latlng.lat, e.latlng.lng]);
+  } });
+  return null;
 }
+
 export default function GeofenceEditor({ fence, deviceCode, lastPoint }) {
- const [open,setOpen]=useState(false);
- const [points,setPoints]=useState([]);
- const [error,setError]=useState("");
- const [busy,setBusy]=useState(false);
- const [notice,setNotice]=useState("");
- const [savedPoints,setSavedPoints]=useState("[]");
- useUpdateBlocker(busy || fence.loading || (points.length > 0 && JSON.stringify(points) !== savedPoints));
- const invalid=polygonError(points);
- const existing=fence.value;
- const save=async () => { setBusy(true);setNotice(""); try { if(!invalid && !busy && existing?.supports_polygon && await fence.save({boundary_points:points})) { setSavedPoints(JSON.stringify(points)); setNotice("محدوده ذخیره شد."); } } finally {setBusy(false);} };
- return <section className="panel">
- <button className="secondary-btn" type="button" aria-expanded={open} aria-controls="fence-editor" onClick={()=>setOpen(v=>!v)}>محدوده جغرافیایی · {open ? "بستن" : "باز کردن"}</button>
- <div id="fence-editor" className={`fence-disclosure ${open ? "is-open" : ""}`} inert={open ? undefined : ""}><div>
- <p>چهار نقطه را به‌ترتیب روی نقشه انتخاب کنید.</p>
- <div className="map-wrap"><MapContainer center={lastPoint || [35.6892,51.389]} zoom={13} doubleClickZoom={false} style={{height:300,width:"100%"}}>
- <TileLayer attribution="&copy; OpenStreetMap" url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" eventHandlers={{tileerror:()=>setError("بارگذاری نقشه ناموفق بود.")}} />
- <MapActions open={open} onPoint={p=>{if(!busy) {setPoints(v=>v.length<4?[...v,p]:v);setNotice("");}}}/>
- {existing?.configured && Number.isFinite(existing.latitude) && Number.isFinite(existing.longitude) && !existing.boundary_points?.length && <Circle center={[existing.latitude,existing.longitude]} radius={existing.radius_m}/>}
- {existing?.boundary_points?.length===4 && <Polygon positions={existing.boundary_points} pathOptions={{color:"#888"}}/>}
- {points.length===4 ? <Polygon positions={points} pathOptions={{color:invalid ? "#d33":"#ff6b1a"}}/> : <Polyline positions={points} color="#ff6b1a"/>}
- {points.map((p,i)=><CircleMarker key={i} center={p} radius={7}><Tooltip permanent direction="top">{i+1}</Tooltip></CircleMarker>)}
- </MapContainer></div>
- <p role="status">{points.length.toLocaleString("fa-IR")} از ۴</p><p>{invalid}</p>
- {!existing?.supports_polygon && <p role="status">ذخیره محدوده چندضلعی به پشتیبانی سرور نیاز دارد.</p>}
- {error && <p role="alert">{error}</p>}{fence.error && <p role="alert">{fence.error}</p>}{notice && <p role="status">{notice}</p>}
- <div className="fence-actions"><button className="secondary-btn" disabled={!points.length || busy} onClick={()=>setPoints(v=>v.slice(0,-1))}>حذف آخرین نقطه</button><button className="secondary-btn" disabled={!points.length || busy} onClick={()=>setPoints([])}>شروع دوباره</button><button className="primary-btn" disabled={!!invalid || busy || !existing?.supports_polygon} onClick={save}>ذخیره محدوده</button>
- {existing?.is_active && <button className="secondary-btn" disabled={fence.loading} onClick={()=>fence.disable()}>غیرفعال کردن محدوده فعلی</button>}</div>
- {!deviceCode && <p>دستگاهی انتخاب نشده است.</p>}
- </div></div></section>;
+  const [open, setOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [points, setPoints] = useState([]);
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [notice, setNotice] = useState("");
+  const [savedPoints, setSavedPoints] = useState("[]");
+  const existing = fence.value;
+  const pointLimit = supportedPointCount(existing);
+  const invalid = polygonError(points, pointLimit);
+
+  useEffect(() => {
+    if (existing?.boundary_points?.length === pointLimit && points.length === 0 && savedPoints === "[]") {
+      const boundary = savedBoundary(existing);
+      setPoints(boundary);
+      setSavedPoints(JSON.stringify(boundary));
+    }
+  }, [existing, pointLimit, points.length, savedPoints]);
+
+  useUpdateBlocker(busy || fence.loading || (JSON.stringify(points) !== savedPoints));
+
+  const save = async () => {
+    if (invalid || busy || !existing?.supports_polygon) return;
+    setBusy(true);
+    setNotice("");
+    try {
+      if (await fence.save({ boundary_points: points })) {
+        setSavedPoints(JSON.stringify(points));
+        setNotice("محدوده ذخیره شد.");
+        setMenuOpen(false);
+      }
+    } finally { setBusy(false); }
+  };
+  const reset = () => {
+    setPoints(JSON.parse(savedPoints));
+    setNotice("");
+    setError("");
+    setMenuOpen(false);
+  };
+  const actionItems = [
+    { name: "حذف آخرین نقطه", Icon: Undo2, disabled: !points.length || busy, action: () => setPoints(v => v.slice(0, -1)) },
+    { name: "حذف نقاط", Icon: Trash2, disabled: !points.length || busy, action: () => { if (window.confirm("همه نقاط انتخاب‌شده حذف شوند؟")) setPoints([]); } },
+    { name: "ریست محدوده", Icon: RotateCcw, disabled: busy || JSON.stringify(points) === savedPoints, action: reset },
+    { name: "ذخیره محدوده", Icon: Check, disabled: !!invalid || busy || !existing?.supports_polygon, action: save, primary: true },
+  ];
+
+  return <section className="panel geo-editor">
+    <button className="secondary-btn" type="button" aria-expanded={open} aria-controls="fence-editor"
+      onClick={() => { setOpen(v => !v); setMenuOpen(false); }}>محدوده جغرافیایی · {open ? "بستن" : "باز کردن"}</button>
+    <div id="fence-editor" className={`fence-disclosure ${open ? "is-open" : ""}`} inert={open ? undefined : ""}>
+      <div>
+        <p className="geo-instruction">{pointLimit === 6 ? "شش" : "چهار"} نقطه را به‌ترتیب روی نقشه انتخاب کنید.</p>
+        <div className="map-wrap geo-map">
+          <MapContainer center={lastPoint || [35.6892, 51.389]} zoom={13} doubleClickZoom={false}>
+            <TileLayer attribution="&copy; OpenStreetMap" url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              eventHandlers={{ tileerror: () => setError("بارگذاری نقشه ناموفق بود.") }} />
+            <MapActions open={open} onPoint={p => {
+              if (!busy) { setPoints(v => v.length < pointLimit ? [...v, p] : v); setNotice(""); }
+              setMenuOpen(false);
+            }} />
+            {existing?.configured && Number.isFinite(existing.latitude) && Number.isFinite(existing.longitude) && !existing.boundary_points?.length && <Circle center={[existing.latitude, existing.longitude]} radius={existing.radius_m} />}
+            {existing?.boundary_points?.length >= 3 && <Polygon positions={existing.boundary_points} pathOptions={{ color: "#8b8e95" }} />}
+            {points.length === pointLimit
+              ? <Polygon positions={points} pathOptions={{ color: invalid ? "#ff5252" : "#ff6b1a", fillColor: "#ff6b1a", fillOpacity: 0.18 }} />
+              : <Polyline positions={points} pathOptions={{ color: "#ff6b1a" }} />}
+            {points.map((p, i) => <CircleMarker key={i} center={p} radius={9}
+              pathOptions={{ color: "#fff", weight: 2, fillColor: "#ff6b1a", fillOpacity: 1 }}>
+              <Tooltip permanent direction="top">{i + 1}</Tooltip>
+            </CircleMarker>)}
+          </MapContainer>
+          <div className="geo-summary" role="status">{points.length.toLocaleString("fa-IR")} از {pointLimit.toLocaleString("fa-IR")} نقطه</div>
+          <div className="geo-floating" onClick={e => e.stopPropagation()}>
+            {menuOpen && <div id="geo-actions" className="geo-speed-actions">
+              {actionItems.map(({ name, Icon, disabled, action, primary }) =>
+                <button key={name} type="button" className={`geo-action ${primary ? "is-primary" : ""}`}
+                  disabled={disabled} aria-label={name} title={name} onClick={() => { action(); if (!primary) setNotice(""); }}>
+                  <Icon size={19} aria-hidden="true" />
+                </button>)}
+            </div>}
+            <button type="button" className="geo-fab" aria-expanded={menuOpen} aria-controls="geo-actions"
+              aria-label="ابزارهای GEO" onClick={() => setMenuOpen(v => !v)}>GEO</button>
+          </div>
+        </div>
+        {invalid && points.length === pointLimit && <p className="form-error" role="alert">{invalid}</p>}
+        {!existing?.supports_polygon && <p role="status">ذخیره محدوده چندضلعی به پشتیبانی سرور نیاز دارد.</p>}
+        {error && <p role="alert">{error}</p>}
+        {fence.error && <p role="alert">{fence.error}</p>}
+        {notice && <p role="status">{notice}</p>}
+        {existing?.is_active && <button type="button" className="secondary-btn" disabled={fence.loading}
+          onClick={() => fence.disable()}>غیرفعال کردن محدوده فعلی</button>}
+        {!deviceCode && <p>دستگاهی انتخاب نشده است.</p>}
+      </div>
+    </div>
+  </section>;
 }

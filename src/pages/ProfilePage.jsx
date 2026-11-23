@@ -1,7 +1,7 @@
 import { ChevronDown, LogOut, Pencil, UserRound, Wifi } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import PageHeader from "../components/PageHeader";
-import { isoToJalali, jalaliToIso } from "../utils/jalali.mjs";
+import { isoToJalali, jalaliToIso, normalizeJalaliInput } from "../utils/jalali.mjs";
 
 const VIEWS = { CLOSED: "closed", DETAILS: "details", EDIT: "edit" };
 
@@ -110,7 +110,7 @@ export default function ProfilePage({ user, onTestBackend, onBack, onLogout, onU
         <div className="form-grid">
           <label htmlFor="first-name"><span>نام</span><input ref={firstFieldRef} id="first-name" autoComplete="given-name" {...field("first_name")} /></label>
           <label htmlFor="last-name"><span>نام خانوادگی</span><input id="last-name" autoComplete="family-name" {...field("last_name")} /></label>
-          <label htmlFor="birth-date"><span>تاریخ تولد (شمسی)</span><input id="birth-date" placeholder="yyyy/mm/dd" inputMode="numeric" dir="ltr" maxLength={10} {...field("birth_date")} /></label>
+          <label htmlFor="birth-date"><span>تاریخ تولد (شمسی)</span><input id="birth-date" placeholder="yyyy/mm/dd" inputMode="text" dir="ltr" maxLength={10} value={form.birth_date} disabled={saving} onChange={(event) => setForm((current) => ({ ...current, birth_date: normalizeJalaliInput(event.target.value) }))} /><small className="field-hint">جداکنندهٔ / یا . قابل استفاده است.</small></label>
           <label htmlFor="mobile"><span>شماره موبایل (غیرقابل ویرایش)</span><input id="mobile" value={user?.mobile || ""} dir="ltr" readOnly aria-readonly="true" /></label>
         </div>
         {saveError && <p className="form-error" role="alert">{saveError}</p>}

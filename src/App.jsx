@@ -23,7 +23,7 @@ import ProfilePage from "./pages/ProfilePage";
 import PageTransition from "./components/motion/PageTransition";
 import { getUserProducts, normalizeProductType, PRODUCTS } from "./data/mockData";
 import { normalizeDigits } from "./utils/validation";
-import { jalaliToIso } from "./utils/jalali.mjs";
+import { jalaliToIso, normalizeJalaliInput } from "./utils/jalali.mjs";
 import { isTelemetryFresh } from "./utils/telemetry.mjs";
 import GammaSplash from "./components/splash/GammaSplash";
 import * as repo from "./services/gammaRepository";
@@ -79,7 +79,7 @@ function RegisterRoute() {
 
   const changeField = (key, value) => {
     const next = key === "mobile" ? normalizeDigits(value).replace(/\D/g, "").slice(0, 11)
-      : key === "birthDate" ? normalizeDigits(value).replace(/[^0-9/]/g, "").slice(0, 10) : value;
+      : key === "birthDate" ? normalizeJalaliInput(value) : value;
     setForm((current) => ({ ...current, [key]: next }));
     setFieldErrors((current) => ({ ...current, [key]: "" }));
     setError("");
@@ -89,7 +89,7 @@ function RegisterRoute() {
     if (!/^09\d{9}$/.test(form.mobile)) nextErrors.mobile = "شماره موبایل باید ۱۱ رقمی و با 09 شروع شود.";
     if (!form.firstName.trim()) nextErrors.firstName = "نام را وارد کنید.";
     if (!form.lastName.trim()) nextErrors.lastName = "نام خانوادگی را وارد کنید.";
-    if (!jalaliToIso(form.birthDate)) nextErrors.birthDate = "تاریخ تولد شمسی معتبر با قالب yyyy/mm/dd وارد کنید.";
+    if (!jalaliToIso(form.birthDate)) nextErrors.birthDate = "تاریخ تولد شمسی معتبر با قالب yyyy/mm/dd یا yyyy.mm.dd وارد کنید.";
     if (!["NEGAHBAN", "RAHBAN", "LUMINEN"].includes(form.deviceModel)) nextErrors.deviceModel = "مدل دستگاه را انتخاب کنید.";
     setFieldErrors(nextErrors);
     if (Object.keys(nextErrors).length) { setError("لطفاً خطاهای مشخص‌شده را برطرف کنید."); return; }

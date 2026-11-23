@@ -17,3 +17,11 @@ test("only fresh transitions on unchanged active fences notify", () => {
   for (const before of [null, { ...old, position: "UNKNOWN" }, { ...old, is_active: false }, { ...old, radius_m: 600 }]) assert.equal(crossedFence(before, next), false);
   for (const after of [{ ...next, last_recorded_at: old.last_recorded_at }, { ...next, last_recorded_at: null }, { ...next, position: "INSIDE" }, { ...next, latitude: 36 }]) assert.equal(crossedFence(old, after), false);
 });
+
+test("polygon edits do not emit a stale enter or exit notification", () => {
+  const old = { is_active: true, boundary_points: [[35,51],[35,52],[36,52],[36,51]], position: "INSIDE", last_recorded_at: "2026-11-23T09:00:00Z" };
+  const next = { ...old, position: "OUTSIDE", last_recorded_at: "2026-11-23T09:01:00Z" };
+  assert.equal(crossedFence(old, next), true);
+  assert.equal(crossedFence(old, { ...next, boundary_points: [[35,51],[35,52],[36,52],[36.1,51]] }), false);
+  assert.equal(crossedFence({ ...old, boundary_points: undefined }, next), false);
+});

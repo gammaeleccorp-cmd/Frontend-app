@@ -1,10 +1,20 @@
-export function polygonError(points) {
-  if (points.length !== 4) return "چهار نقطه روی نقشه انتخاب کنید.";
-  if (new Set(points.map(p => p.join(','))).size !== 4) return "نقاط باید متمایز باشند.";
+export function polygonError(points, vertexCount = 4) {
+  if (![4,6].includes(vertexCount)) return "تعداد نقاط پشتیبانی نمی‌شود.";
+  if (points.length !== vertexCount) return `${vertexCount === 6 ? "شش" : "چهار"} نقطه روی نقشه انتخاب کنید.`;
+  if (!points.every(p => Array.isArray(p) && p.length === 2 && p.every(Number.isFinite) && Math.abs(p[0]) <= 90 && Math.abs(p[1]) <= 180)) return "مختصات انتخاب‌شده معتبر نیستند.";
+  if (new Set(points.map(p => p.join(","))).size !== vertexCount) return "نقاط باید متمایز باشند.";
   const cross = (a,b,c) => (b[0]-a[0])*(c[1]-a[1])-(b[1]-a[1])*(c[0]-a[0]);
-  const intersects = (a,b,c,d) => cross(a,b,c)*cross(a,b,d) <= 0 && cross(c,d,a)*cross(c,d,b) <= 0;
-  if (intersects(points[0],points[1],points[2],points[3]) || intersects(points[1],points[2],points[3],points[0])) return "ضلع‌های محدوده نباید یکدیگر را قطع کنند.";
-  if (Math.abs(points.reduce((sum,p,i) => { const q=points[(i+1)%4]; return sum+p[0]*q[1]-q[0]*p[1]; },0)) < 1e-12) return "مساحت محدوده باید بیشتر از صفر باشد.";
+  const onSegment = (a,b,p) => Math.min(a[0],b[0]) <= p[0] && p[0] <= Math.max(a[0],b[0]) && Math.min(a[1],b[1]) <= p[1] && p[1] <= Math.max(a[1],b[1]);
+  const intersects = (a,b,c,d) => {
+    const x=cross(a,b,c), y=cross(a,b,d), z=cross(c,d,a), w=cross(c,d,b);
+    return (x*y < 0 && z*w < 0) || (x===0 && onSegment(a,b,c)) || (y===0 && onSegment(a,b,d)) || (z===0 && onSegment(c,d,a)) || (w===0 && onSegment(c,d,b));
+  };
+  for(let i=0;i<vertexCount;i++) for(let j=i+1;j<vertexCount;j++) {
+    if (j===i+1 || (i===0 && j===vertexCount-1)) continue;
+    if (intersects(points[i],points[(i+1)%vertexCount],points[j],points[(j+1)%vertexCount])) return "ضلع‌های محدوده نباید یکدیگر را قطع کنند.";
+  }
+  const area=points.reduce((sum,p,i) => {const q=points[(i+1)%vertexCount];return sum+p[0]*q[1]-q[0]*p[1];},0);
+  if (Math.abs(area)<1e-12) return "مساحت محدوده باید بیشتر از صفر باشد.";
   return "";
 }
 export function recentRecordedPoints(history = [], limit = 100) {
@@ -13,7 +23,8 @@ export function recentRecordedPoints(history = [], limit = 100) {
 export function latestPosition(history = []) {
   return recentRecordedPoints(history, 1)[0];
 }
-export const neshanUrl = point => `https://neshan.org/maps/@${point[0]},${point[1]},16z`;
+export const neshanUrl = point => `https://nshn.ir/?lat=${encodeURIComponent(point[0])}&lng=${encodeURIComponent(point[1])}`;
+export const neshanRouteUrl = (origin, destination, vehicle = 'd') => `https://nshn.ir?origin=${encodeURIComponent(origin.join(','))}&destination=${encodeURIComponent(destination.join(','))}&vehicle=${vehicle === 'm' ? 'm' : 'd'}`;
 export function liveSpeed(sample, now = Date.now()) {
  const time = Date.parse(sample?.recorded_at);
  if (!Number.isFinite(time) || now-time > 90000 || time > now+30000) return null;
