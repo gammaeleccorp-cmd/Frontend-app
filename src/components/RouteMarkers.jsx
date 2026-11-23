@@ -36,7 +36,11 @@ function openSinglePopup(layer) {
   // marker's card before opening this one, even on an emulated pointer.
   const map = layer._map;
   if (!map) return;
-  map.closePopup();
+  // Leaflet's map.closePopup only closes its currently tracked popup.
+  // Explicitly close every bound layer popup when pointer events race.
+  map.eachLayer(candidate => {
+    if (candidate !== layer && candidate.isPopupOpen?.()) candidate.closePopup();
+  });
   layer.openPopup();
 }
 
