@@ -50,10 +50,10 @@ test('Routes renders each recorded timestamp beside its own exact Neshan link', 
     assert.equal(rows.length, 2);
     for (const [index, point] of [newer, older].entries()) {
       assert.ok(rows[index].includes(`<time dateTime="${point.recordedAt}">${formatTelemetryTime(point.recordedAt)}</time>`));
-      assert.ok(rows[index].includes(`href="https://neshan.org/maps/@${point.coordinates.join(',')},16z" target="_blank" rel="noopener noreferrer">مشاهده در نشان</a>`));
+      assert.ok(rows[index].includes(`href="https://nshn.ir/maps/@${point.coordinates.join(',')},16z" target="_blank" rel="noopener noreferrer">مشاهده در نشان</a>`));
       assert.ok(rows[index].includes(`${point.speed} km/h`));
     }
-    assert.equal((html.match(/neshan.org/g) || []).length, 2);
+    assert.equal((html.match(/nshn.ir/g) || []).length, 2);
     assert.doesNotMatch(html, /باز کردن آخرین موقعیت/);
     const many = Array.from({ length: 151 }, (_, id) => ({ ...older, id }));
     const full = renderToStaticMarkup(createElement(RoutesPage, { routeHistory: many }));
@@ -61,7 +61,7 @@ test('Routes renders each recorded timestamp beside its own exact Neshan link', 
     assert.match(full, /151 مورد/);
     const empty = renderToStaticMarkup(createElement(RoutesPage, {}));
     assert.match(empty, /هنوز نقطه‌ای برای این دستگاه دریافت نشده است/);
-    assert.doesNotMatch(empty, /neshan.org/);
+    assert.doesNotMatch(empty, /nshn.ir/);
     const { default: RecordedPointPopup } = await vite.ssrLoadModule('/src/components/RecordedPointPopup.jsx');
     for (const records of [[older, newer], [{ ...older, speed: null }], [older, { ...newer, coordinates: older.coordinates }]]) {
       for (const marker of routeMarkers(records)) {
