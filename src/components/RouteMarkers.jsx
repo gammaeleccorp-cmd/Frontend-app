@@ -36,9 +36,11 @@ function pointEvents(marker, onSelect) {
     mouseover(event) {
       if (isMouseHover(event)) onSelect(marker);
     },
-    click() {
-      // Native click events also cover touchscreen tap and keyboard activation.
-      onSelect(marker);
+    click(event) {
+      // On touch, Leaflet can process the map's click-to-close after the marker
+      // click. Open the shared card on the next task, after that propagation.
+      event.originalEvent?.stopPropagation?.();
+      setTimeout(() => onSelect(marker), 0);
     },
   };
 }
