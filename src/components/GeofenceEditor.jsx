@@ -4,8 +4,9 @@ import { Check, RotateCcw, Trash2, Undo2 } from "lucide-react";
 import { polygonError } from "../utils/flag15.mjs";
 import useUpdateBlocker from "../hooks/useUpdateBlocker";
 
-const SIX = 6;
-const savedBoundary = (value) => Array.isArray(value?.boundary_points) && value.boundary_points.length === SIX
+const MAX_SAFE_POINTS = 4;
+const supportedPointCount = (value) => value?.max_boundary_points === 6 || value?.supports_six_point_polygon === true || value?.boundary_points?.length === 6 ? 6 : MAX_SAFE_POINTS;
+const savedBoundary = (value) => Array.isArray(value?.boundary_points) && value.boundary_points.length === supportedPointCount(value)
   ? value.boundary_points.map(point => [...point]) : [];
 
 function MapActions({ open, onPoint }) {
@@ -31,15 +32,16 @@ export default function GeofenceEditor({ fence, deviceCode, lastPoint }) {
   const [notice, setNotice] = useState("");
   const [savedPoints, setSavedPoints] = useState("[]");
   const existing = fence.value;
-  const invalid = polygonError(points);
+  const pointLimit = supportedPointCount(existing);
+  const invalid = polygonError(points, pointLimit);
 
   useEffect(() => {
-    if (existing?.boundary_points?.length === SIX && points.length === 0 && savedPoints === "[]") {
+    if (existing?.boundary_points?.length === pointLimit && points.length === 0 && savedPoints === "[]") {
       const boundary = savedBoundary(existing);
       setPoints(boundary);
       setSavedPoints(JSON.stringify(boundary));
     }
-  }, [existing, points.length, savedPoints]);
+  }, [existing, pointLimit, points.length, savedPoints]);
 
   useUpdateBlocker(busy || fence.loading || (JSON.stringify(points) !== savedPoints));
 
@@ -73,18 +75,18 @@ export default function GeofenceEditor({ fence, deviceCode, lastPoint }) {
       onClick={() => { setOpen(v => !v); setMenuOpen(false); }}>محدوده جغرافیایی · {open ? "بستن" : "باز کردن"}</button>
     <div id="fence-editor" className={`fence-disclosure ${open ? "is-open" : ""}`} inert={open ? undefined : ""}>
       <div>
-        <p className="geo-instruction">شش نقطه را به‌ترتیب روی نقشه انتخاب کنید.</p>
+        <p className="geo-instruction">{pointLimit === 6 ? "شش" : "چهار"} نقطه را به‌ترتیب روی نقشه انتخاب کنید.</p>
         <div className="map-wrap geo-map">
           <MapContainer center={lastPoint || [35.6892, 51.389]} zoom={13} doubleClickZoom={false}>
             <TileLayer attribution="&copy; OpenStreetMap" url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
               eventHandlers={{ tileerror: () => setError("بارگذاری نقشه ناموفق بود.") }} />
             <MapActions open={open} onPoint={p => {
-              if (!busy) { setPoints(v => v.length < SIX ? [...v, p] : v); setNotice(""); }
+              if (!busy) { setPoints(v => v.length < pointLimit ? [...v, p] : v); setNotice(""); }
               setMenuOpen(false);
             }} />
             {existing?.configured && Number.isFinite(existing.latitude) && Number.isFinite(existing.longitude) && !existing.boundary_points?.length && <Circle center={[existing.latitude, existing.longitude]} radius={existing.radius_m} />}
             {existing?.boundary_points?.length >= 3 && <Polygon positions={existing.boundary_points} pathOptions={{ color: "#8b8e95" }} />}
-            {points.length === SIX
+            {points.length === pointLimit
               ? <Polygon positions={points} pathOptions={{ color: invalid ? "#ff5252" : "#ff6b1a", fillColor: "#ff6b1a", fillOpacity: 0.18 }} />
               : <Polyline positions={points} pathOptions={{ color: "#ff6b1a" }} />}
             {points.map((p, i) => <CircleMarker key={i} center={p} radius={9}
@@ -92,7 +94,7 @@ export default function GeofenceEditor({ fence, deviceCode, lastPoint }) {
               <Tooltip permanent direction="top">{i + 1}</Tooltip>
             </CircleMarker>)}
           </MapContainer>
-          <div className="geo-summary" role="status">{points.length.toLocaleString("fa-IR")} از ۶ نقطه</div>
+          <div className="geo-summary" role="status">{points.length.toLocaleString("fa-IR")} از {pointLimit.toLocaleString("fa-IR")} نقطه</div>
           <div className="geo-floating" onClick={e => e.stopPropagation()}>
             {menuOpen && <div id="geo-actions" className="geo-speed-actions">
               {actionItems.map(({ name, Icon, disabled, action, primary }) =>
