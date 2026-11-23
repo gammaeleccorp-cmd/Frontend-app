@@ -61,6 +61,7 @@ const path = require('path');
     throw new Error(`Registration did not continue: ${failure}`);
   }
   await page.waitForURL('**/otp');
+  await page.locator('.otp').first().waitFor({state:'visible'});
   const registration=requests.find(r=>r.body?.registration).body;
   assert.deepEqual(Object.keys(registration.registration).sort(),['birthDate','deviceModel','firstName','lastName']);
   assert.equal(registration.registration.birthDate,'2000-03-20');

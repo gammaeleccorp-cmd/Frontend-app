@@ -255,6 +255,24 @@ const assert = require("node:assert/strict");
       await page.getByText('۶ از ۶ نقطه',{exact:true}).waitFor();
     }
     await page.getByRole('button',{name:'ابزارهای GEO'}).click();
+    for (const width of [320,390,1280]) {
+      await page.setViewportSize({width,height:844});
+      const layout=await page.evaluate(() => {
+        const map=document.querySelector('.geo-map').getBoundingClientRect();
+        const menu=document.querySelector('.geo-floating').getBoundingClientRect();
+        const nav=document.querySelector('.bottom-nav').getBoundingClientRect();
+        const buttons=[...document.querySelectorAll('.geo-action')].map(el=>el.getBoundingClientRect());
+        return {map:{left:map.left,right:map.right,top:map.top,bottom:map.bottom},
+          menu:{left:menu.left,right:menu.right,top:menu.top,bottom:menu.bottom}, navTop:nav.top,
+          buttons:buttons.map(box=>({width:box.width,height:box.height})), overflow:document.documentElement.scrollWidth>innerWidth};
+      });
+      assert.equal(layout.buttons.length,4);
+      assert.ok(layout.buttons.every(({width:buttonWidth,height})=>buttonWidth===44 && height===44),`GEO tools must be compact squares at ${width}px`);
+      assert.ok(layout.menu.left>=layout.map.left && layout.menu.right<=layout.map.right && layout.menu.top>=layout.map.top && layout.menu.bottom<=layout.map.bottom);
+      assert.ok(layout.menu.bottom<=layout.navTop,`GEO controls overlap navigation at ${width}px`);
+      assert.equal(layout.overflow,false);
+    }
+    await page.setViewportSize({width:390,height:844});
     await page.getByRole('button',{name:'حذف آخرین نقطه'}).click();
     await page.getByText('۵ از ۶ نقطه',{exact:true}).waitFor();
     await map.scrollIntoViewIfNeeded();

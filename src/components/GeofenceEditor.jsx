@@ -99,8 +99,8 @@ export default function GeofenceEditor({ fence, deviceCode, lastPoint }) {
             {menuOpen && <div id="geo-actions" className="geo-speed-actions">
               {actionItems.map(({ name, Icon, disabled, action, primary }) =>
                 <button key={name} type="button" className={`geo-action ${primary ? "is-primary" : ""}`}
-                  disabled={disabled} aria-label={name} onClick={() => { action(); if (!primary) setNotice(""); }}>
-                  <span>{name}</span><Icon size={19} aria-hidden="true" />
+                  disabled={disabled} aria-label={name} title={name} onClick={() => { action(); if (!primary) setNotice(""); }}>
+                  <Icon size={19} aria-hidden="true" />
                 </button>)}
             </div>}
             <button type="button" className="geo-fab" aria-expanded={menuOpen} aria-controls="geo-actions"
