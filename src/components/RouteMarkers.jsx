@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Flag } from 'lucide-react';
 import { divIcon } from 'leaflet';
@@ -31,38 +31,19 @@ function isMouseHover(event) {
     event.originalEvent?.sourceCapabilities?.firesTouchEvents !== true;
 }
 
-function openSinglePopup(layer) {
-  // The recorded point and start/end symbol may overlap. Close another
-  // marker's card before opening this one, even on an emulated pointer.
-  const map = layer._map;
-  if (!map) return;
-  // Leaflet's map.closePopup only closes its currently tracked popup.
-  // Explicitly close every bound layer popup when pointer events race.
-  map.eachLayer(candidate => {
-    if (candidate !== layer && candidate.isPopupOpen?.()) candidate.closePopup();
-  });
-  layer.openPopup();
+function pointEvents(marker, onSelect) {
+  return {
+    mouseover(event) {
+      if (isMouseHover(event)) onSelect(marker);
+    },
+    click() {
+      // Native click events also cover touchscreen tap and keyboard activation.
+      onSelect(marker);
+    },
+  };
 }
 
-const hoverPopupHandlers = {
-  mouseover(event) {
-    if (isMouseHover(event)) openSinglePopup(event.target);
-  },
-  click(event) {
-    // Leaflet may toggle an existing hover popup during a click. Reopen
-    // one card after its own built-in click and the map click handlers.
-    queueMicrotask(() => openSinglePopup(event.target));
-  },
-  // Keep the card usable when moving the pointer from a marker into it.
-};
-
-function PointDetails({ marker }) {
-  return <Popup className="route-detail-popup" autoPan={false} maxWidth={240} minWidth={160}>
-    <RecordedPointPopup marker={marker} />
-  </Popup>;
-}
-
-function RecordedMarker({ marker }) {
+function RecordedMarker({ marker, onSelect }) {
   const { element, icon } = useMemo(() => {
     const element = document.createElement('div');
     const icon = divIcon({
@@ -77,27 +58,30 @@ function RecordedMarker({ marker }) {
       {marker.kind === 'end' ? <VehicleIcon heading={marker.heading} /> : <Flag size={23} />}
       {marker.includesStart && <span className="route-start-dot" />}
     </span>, element)}
-    <Marker position={marker.point.coordinates} icon={icon} title={marker.label} alt={marker.label} zIndexOffset={marker.kind === 'end' ? 200 : 100} eventHandlers={hoverPopupHandlers}>
-      <PointDetails marker={marker} />
-    </Marker>
+    <Marker position={marker.point.coordinates} icon={icon} title={marker.label} alt={marker.label} zIndexOffset={marker.kind === 'end' ? 200 : 100} eventHandlers={pointEvents(marker, onSelect)} />
   </>;
 }
 
 export default function RouteMarkers({ history }) {
+  const [selection, setSelection] = useState(null);
   const markers = routeMarkers(history);
-  // Start/end symbols already own these positions. The underlying route
-  // circles must not steal hover/tap events from the visible car or flag.
+  // The visible start/car symbols own their positions, so underlying circles
+  // cannot compete for pointer or touch events.
   const symbolPositions = new Set(markers.map(marker => marker.point.coordinates.join(',')));
   return <>
     {recordedRoutePoints(history, Infinity).map((point, index) => {
       const covered = symbolPositions.has(point.coordinates.join(','));
+      const marker = { label: 'نقطه ثبت‌شده', points: [point] };
       return <CircleMarker className={`route-recorded-point${covered ? ' route-under-symbol' : ''}`}
         key={`${point.id}-${index}`} center={point.coordinates} radius={7}
         pathOptions={{ color: '#fff', weight: 2, fillColor: '#ff6b1a', fillOpacity: 1 }}
-        eventHandlers={covered ? undefined : hoverPopupHandlers}>
-        {!covered && <PointDetails marker={{ label: 'نقطه ثبت‌شده', points: [point] }} />}
-      </CircleMarker>;
+        eventHandlers={covered ? undefined : pointEvents(marker, setSelection)} />;
     })}
-    {markers.map(marker => <RecordedMarker key={marker.kind} marker={marker} />)}
+    {markers.map(marker => <RecordedMarker key={marker.kind} marker={marker} onSelect={setSelection} />)}
+    {selection && <Popup position={selection.point?.coordinates || selection.points?.[0]?.coordinates}
+      className="route-detail-popup" autoPan={false} maxWidth={240} minWidth={160}
+      eventHandlers={{ remove: () => setSelection(null) }}>
+      <RecordedPointPopup marker={selection} />
+    </Popup>}
   </>;
 }
