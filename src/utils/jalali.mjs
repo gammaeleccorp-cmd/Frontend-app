@@ -9,8 +9,13 @@ function persianParts(date) {
   return [Number(parts.year), Number(parts.month), Number(parts.day)];
 }
 
+// Preserve the separator the user types; accept slash and dot on mobile and desktop.
+export function normalizeJalaliInput(value) {
+  return normalizeDigits(value).replace(/[^0-9/.]/g, "").slice(0, 10);
+}
+
 export function jalaliToIso(value) {
-  const text = normalizeDigits(value).trim();
+  const text = normalizeDigits(value).trim().replaceAll(".", "/");
   if (!/^\d{4}\/\d{2}\/\d{2}$/.test(text)) return "";
   const [year, month, day] = text.split("/").map(Number);
   if (year < 1250 || year > 1500 || month < 1 || month > 12 || day < 1 || day > 31) return "";
