@@ -88,8 +88,11 @@ const path = require('node:path');
         const box = await car.boundingBox();
         assert.ok(box.width >= 44 && box.height >= 44);
         await page.locator('.full-map .leaflet-container').scrollIntoViewIfNeeded();
-        await car.click();
+        // A mouse opens the single rounded card by hover, without a click.
+        await car.hover();
         const carPopupText = await waitForPopup();
+        assert.equal(await page.locator('.full-map .leaflet-popup').count(),1);
+        assert.equal(await page.locator('.full-map .leaflet-tooltip').count(),0);
         const expectedTimes = name === 'overlap' ? [first.recorded_at, last.recorded_at] : [name === 'single' ? first.recorded_at : last.recorded_at];
         assert.deepEqual(await page.locator('.leaflet-popup .route-point-popup time').evaluateAll(elements => elements.map(el => el.dateTime)), expectedTimes);
         assert.equal(await page.locator('.leaflet-popup .route-point-popup').evaluate(el => getComputedStyle(el).direction), 'rtl');
@@ -162,7 +165,8 @@ const path = require('node:path');
       const hoverBox = await hoverCard.boundingBox();
       assert.ok(hoverBox.width >= 160 && hoverBox.width <= 320, `Unreadable popup width at ${width}px: ${hoverBox.width}`);
       assert.ok(hoverBox.height < 240, `Popup text is wrapping excessively at ${width}px`);
-      await page.locator('.full-map .route-map-marker.end').click();
+      // Desktop users keep the same card open by hovering; tap is covered below.
+      await page.locator('.full-map .route-map-marker.end').hover();
       const popupText = await waitForPopup();
       assert.match(popupText, /0 km\/h/);
       await page.locator('.leaflet-popup-close-button').click();
