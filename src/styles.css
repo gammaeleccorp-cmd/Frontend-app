@@ -874,3 +874,6 @@ button:disabled { opacity: .55; cursor: not-allowed; }
   .map-panel .geo-map { height: clamp(420px, 70dvh, 850px); }
 }
 @media (max-width: 400px) { .geo-floating { right: 8px; bottom: 12px; } }
+
+/* Avoid duplicate hover/tap targets at recorded points covered by the car/flag. */
+.full-map .route-recorded-point.route-under-symbol { pointer-events: none; }
