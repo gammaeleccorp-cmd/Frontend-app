@@ -10,12 +10,14 @@ const path = require('node:path');
     page.setDefaultTimeout(15000);
     const epoch = Date.parse('2026-11-21T12:00:00Z');
     await page.clock.install({ time: epoch });
-    const waitForPopup = async () => {
-      const rendered = await page.waitForFunction(() => {
-        const popup = document.querySelector('.leaflet-popup .route-point-popup');
+    const waitForPopup = async (label = '') => {
+      const rendered = await page.waitForFunction((expected) => {
+        const popups = [...document.querySelectorAll('.full-map .leaflet-popup .route-point-popup')];
+        const popup = popups.find(node => !expected || node.innerText?.includes(expected));
         const text = popup?.innerText;
-        return text?.includes('سرعت:') && text.includes('عرض جغرافیایی:') && text.includes('طول جغرافیایی:') && [...popup.querySelectorAll('bdi,time')].every(node => text.includes(node.textContent)) ? text : false;
-      });
+        return text?.includes('سرعت:') && text.includes('عرض جغرافیایی:') && text.includes('طول جغرافیایی:') &&
+          [...popup.querySelectorAll('bdi,time')].every(node => text.includes(node.textContent)) ? text : false;
+      }, label);
       return rendered.jsonValue();
     };
     const errors = [], unexpected = [];
@@ -78,8 +80,8 @@ const path = require('node:path');
           const start = page.locator('.full-map .route-map-marker.start');
           assert.equal(await start.evaluate(el => getComputedStyle(el).backgroundColor), 'rgb(61, 220, 132)');
           await page.locator('.full-map .leaflet-container').scrollIntoViewIfNeeded();
-          await start.click();
-          const startPopupText = await waitForPopup();
+          await start.hover();
+          const startPopupText = await waitForPopup('شروع مسیر');
           assert.ok(await page.locator(`.leaflet-popup .route-point-popup time[datetime="${first.recorded_at}"]`).count() >= 1);
           assert.match(startPopupText, /0 km\/h/);
           await page.locator('.leaflet-popup-close-button').click();
@@ -90,7 +92,7 @@ const path = require('node:path');
         await page.locator('.full-map .leaflet-container').scrollIntoViewIfNeeded();
         // A mouse opens the single rounded card by hover, without a click.
         await car.hover();
-        const carPopupText = await waitForPopup();
+        const carPopupText = await waitForPopup('پایان مسیر');
         assert.equal(await page.locator('.full-map .leaflet-popup').count(),1);
         assert.equal(await page.locator('.full-map .leaflet-tooltip').count(),0);
         const expectedTimes = name === 'overlap' ? [first.recorded_at, last.recorded_at] : [name === 'single' ? first.recorded_at : last.recorded_at];
@@ -167,7 +169,7 @@ const path = require('node:path');
       assert.ok(hoverBox.height < 240, `Popup text is wrapping excessively at ${width}px`);
       // Desktop users keep the same card open by hovering; tap is covered below.
       await page.locator('.full-map .route-map-marker.end').hover();
-      const popupText = await waitForPopup();
+      const popupText = await waitForPopup('پایان مسیر');
       assert.match(popupText, /0 km\/h/);
       await page.locator('.leaflet-popup-close-button').click();
       history = [];
