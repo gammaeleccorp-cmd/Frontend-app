@@ -56,3 +56,15 @@ test('Neshan vehicle routing intent matches provider format', async () => {
  assert.equal(neshanRouteUrl([35,51],[36,52]), 'https://nshn.ir?origin=35%2C51&destination=36%2C52&vehicle=d');
  assert.equal(neshanRouteUrl([35,51],[36,52],'m'), 'https://nshn.ir?origin=35%2C51&destination=36%2C52&vehicle=m');
 });
+
+test('crossing geofence shows an explicit error for both four and six vertices', () => {
+  assert.match(
+    polygonError([[1,1],[3,3],[1,3],[3,1]], 4),
+    /شکل متقاطع است/
+  );
+  assert.match(
+    polygonError([[1,1],[3,3],[1,3],[3,1],[2,0],[4,0]], 6),
+    /شکل متقاطع است/
+  );
+  assert.equal(polygonError([[1,1],[1,3],[3,3],[3,1]], 4), '');
+});
