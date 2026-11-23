@@ -877,3 +877,6 @@ button:disabled { opacity: .55; cursor: not-allowed; }
 
 /* Avoid duplicate hover/tap targets at recorded points covered by the car/flag. */
 .full-map .route-recorded-point.route-under-symbol { pointer-events: none; }
+
+/* Keep the location empty state available alongside the shared GEO map. */
+.map-panel > .map-no-location { height: auto; padding: 14px; margin-top: 10px; }
