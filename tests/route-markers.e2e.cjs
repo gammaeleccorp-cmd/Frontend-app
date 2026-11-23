@@ -10,12 +10,14 @@ const path = require('node:path');
     page.setDefaultTimeout(15000);
     const epoch = Date.parse('2026-11-21T12:00:00Z');
     await page.clock.install({ time: epoch });
-    const waitForPopup = async () => {
-      const rendered = await page.waitForFunction(() => {
-        const popup = document.querySelector('.leaflet-popup .route-point-popup');
+    const waitForPopup = async (label = '') => {
+      const rendered = await page.waitForFunction((expected) => {
+        const popups = [...document.querySelectorAll('.full-map .leaflet-popup .route-point-popup')];
+        const popup = popups.find(node => !expected || node.innerText?.includes(expected));
         const text = popup?.innerText;
-        return text?.includes('سرعت:') && text.includes('عرض جغرافیایی:') && text.includes('طول جغرافیایی:') && [...popup.querySelectorAll('bdi,time')].every(node => text.includes(node.textContent)) ? text : false;
-      });
+        return text?.includes('سرعت:') && text.includes('عرض جغرافیایی:') && text.includes('طول جغرافیایی:') &&
+          [...popup.querySelectorAll('bdi,time')].every(node => text.includes(node.textContent)) ? text : false;
+      }, label);
       return rendered.jsonValue();
     };
     const errors = [], unexpected = [];
@@ -29,7 +31,7 @@ const path = require('node:path');
     });
     const tile = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aX1sAAAAASUVORK5CYII=', 'base64');
     await page.route(/https:\/\/(.*\.)?tile\.openstreetmap\.org\//, route => route.fulfill({ contentType: 'image/png', body: tile }));
-    await page.route('https://api.gamma-tech.ir/**', async route => {
+    const handleApi = async route => {
       const endpoint = new URL(route.request().url()).pathname;
       assert.equal(route.request().method(), 'GET');
       let data;
@@ -47,7 +49,8 @@ const path = require('node:path');
       else if (endpoint.endsWith('/geofence/')) data = { configured: false, supports_polygon: true, position: 'UNKNOWN' };
       else { unexpected.push(endpoint); return route.abort(); }
       await route.fulfill({ contentType: 'application/json', body: JSON.stringify(data) });
-    });
+    };
+    await page.route('https://api.gamma-tech.ir/**', handleApi);
     const first = { id: 1, latitude: 35.70857, longitude: 51.37728, recorded_at: '2026-11-21T09:00:00Z', speed: 0 };
     const last = { id: 2, latitude: 35.71657, longitude: 51.38528, recorded_at: '2026-11-21T10:00:00Z', speed: 42, heading: 90 };
     const base = process.env.E2E_BASE || 'http://127.0.0.1:5178';
@@ -77,9 +80,9 @@ const path = require('node:path');
           const start = page.locator('.full-map .route-map-marker.start');
           assert.equal(await start.evaluate(el => getComputedStyle(el).backgroundColor), 'rgb(61, 220, 132)');
           await page.locator('.full-map .leaflet-container').scrollIntoViewIfNeeded();
-          await start.click();
-          const startPopupText = await waitForPopup();
-          assert.equal(await page.locator('.leaflet-popup .route-point-popup time').getAttribute('datetime'), first.recorded_at);
+          await start.hover();
+          const startPopupText = await waitForPopup('شروع مسیر');
+          assert.ok(await page.locator(`.leaflet-popup .route-point-popup time[datetime="${first.recorded_at}"]`).count() >= 1);
           assert.match(startPopupText, /0 km\/h/);
           await page.locator('.leaflet-popup-close-button').click();
         }
@@ -87,8 +90,12 @@ const path = require('node:path');
         const box = await car.boundingBox();
         assert.ok(box.width >= 44 && box.height >= 44);
         await page.locator('.full-map .leaflet-container').scrollIntoViewIfNeeded();
-        await car.click();
-        const carPopupText = await waitForPopup();
+        // A mouse opens the single rounded card by hover, without a click.
+        await car.hover();
+        const carPopupText = await waitForPopup('پایان مسیر');
+        await page.waitForFunction(() => document.querySelectorAll('.full-map .leaflet-popup').length === 1);
+        assert.equal(await page.locator('.full-map .leaflet-popup').count(),1);
+        assert.equal(await page.locator('.full-map .leaflet-tooltip').count(),0);
         const expectedTimes = name === 'overlap' ? [first.recorded_at, last.recorded_at] : [name === 'single' ? first.recorded_at : last.recorded_at];
         assert.deepEqual(await page.locator('.leaflet-popup .route-point-popup time').evaluateAll(elements => elements.map(el => el.dateTime)), expectedTimes);
         assert.equal(await page.locator('.leaflet-popup .route-point-popup').evaluate(el => getComputedStyle(el).direction), 'rtl');
@@ -125,9 +132,15 @@ const path = require('node:path');
     await page.locator('.full-map .leaflet-container').scrollIntoViewIfNeeded();
     const recordedPoint = page.locator('.route-recorded-point').nth(50);
     await recordedPoint.hover();
-    await page.locator('.route-hover-tooltip').getByText(/عرض جغرافیایی/).first().waitFor({ state: 'visible' });
+    await page.locator('.full-map .leaflet-popup .route-point-popup').getByText(/عرض جغرافیایی/).first().waitFor({ state: 'visible' });
+    await page.waitForFunction(() => document.querySelectorAll('.full-map .leaflet-popup').length === 1);
+    assert.equal(await page.locator('.full-map .leaflet-popup').count(), 1, 'mouse hover shows one rounded card');
+    assert.equal(await page.locator('.full-map .leaflet-tooltip').count(), 0, 'no duplicate hover tooltip');
     await recordedPoint.click();
     const pointPopupText = await waitForPopup();
+    await page.waitForTimeout(100);
+    assert.equal(await page.locator('.full-map .leaflet-popup').count(), 1, 'click reuses the hover popup instance');
+    assert.equal(await page.locator('.full-map .leaflet-popup-close-button').count(), 1, 'one popup owns one close button');
     assert.match(pointPopupText, /عرض جغرافیایی|طول جغرافیایی/);
     assert.match(pointPopupText, /0 km\/h/);
     await page.locator('.leaflet-popup-close-button').click();
@@ -152,13 +165,16 @@ const path = require('node:path');
       assert.equal(await page.locator('.route-row time').last().getAttribute('datetime'), history[6].recorded_at);
       await page.locator('.full-map .leaflet-container').scrollIntoViewIfNeeded();
       await page.locator('.full-map .route-map-marker.end').hover();
-      const hoverCard = page.locator('.route-hover-tooltip');
+      const hoverCard = page.locator('.full-map .route-detail-popup');
       await hoverCard.getByText(/عرض جغرافیایی/).first().waitFor({ state: 'visible' });
+      assert.equal(await hoverCard.count(), 1);
+      assert.equal(await page.locator('.full-map .leaflet-tooltip').count(), 0);
       const hoverBox = await hoverCard.boundingBox();
-      assert.ok(hoverBox.width >= 180 && hoverBox.width <= 224, `Unreadable tooltip width at ${width}px: ${hoverBox.width}`);
-      assert.ok(hoverBox.height < 220, `Tooltip text is wrapping excessively at ${width}px`);
-      await page.locator('.full-map .route-map-marker.end').click();
-      const popupText = await waitForPopup();
+      assert.ok(hoverBox.width >= 160 && hoverBox.width <= 320, `Unreadable popup width at ${width}px: ${hoverBox.width}`);
+      assert.ok(hoverBox.height < 240, `Popup text is wrapping excessively at ${width}px`);
+      // Desktop users keep the same card open by hovering; tap is covered below.
+      await page.locator('.full-map .route-map-marker.end').hover();
+      const popupText = await waitForPopup('پایان مسیر');
       assert.match(popupText, /0 km\/h/);
       await page.locator('.leaflet-popup-close-button').click();
       history = [];
@@ -169,6 +185,38 @@ const path = require('node:path');
       assert.match(await page.locator('.route-history .empty-state').innerText(), /هنوز نقطه‌ای برای این دستگاه دریافت نشده است/);
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
     }
+    // On phones and touch-enabled tablets, tap (not mouse hover) opens
+    // the exact same single rounded detail card.
+    paginated = false;
+    const middle = { ...first, id: 3, latitude: 35.71257, longitude: 51.38128,
+      recorded_at: '2026-11-21T09:30:00Z', speed: 18 };
+    history = [last, middle, first];
+    const touchPage = await browser.newPage({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+    const touchErrors = [];
+    touchPage.on('pageerror', error => touchErrors.push(error.message));
+    await touchPage.addInitScript(() => {
+      localStorage.setItem('gamma_access_token', 'isolated-test-token');
+      localStorage.setItem('gamma_product', 'NEGAHBAN');
+    });
+    await touchPage.route(/https:\/\/(.*\.)?tile\.openstreetmap\.org\//, route => route.fulfill({ contentType: 'image/png', body: tile }));
+    await touchPage.route('https://api.gamma-tech.ir/**', handleApi);
+    await touchPage.goto(`${base}/routes`);
+    const carOnTouch = touchPage.locator('.full-map .route-map-marker.end');
+    await carOnTouch.waitFor();
+    await carOnTouch.tap();
+    await touchPage.locator('.full-map .route-detail-popup .route-point-popup').waitFor({ state: 'visible' }).catch(async error => {
+      console.error({ touchErrors, popupCount: await touchPage.locator('.full-map .leaflet-popup').count(),
+        markerCount: await carOnTouch.count(), mapText: await touchPage.locator('.full-map').innerText() });
+      throw error;
+    });
+    assert.equal(await touchPage.locator('.full-map .leaflet-popup').count(), 1);
+    assert.equal(await touchPage.locator('.full-map .leaflet-tooltip').count(), 0);
+    await touchPage.locator('.route-recorded-point:not(.route-under-symbol)').tap();
+    await touchPage.locator('.full-map .route-detail-popup').getByText('نقطه ثبت‌شده', { exact: true }).waitFor({ state: 'visible' });
+    assert.equal(await touchPage.locator('.full-map .leaflet-popup').count(), 1, 'recorded-point tap reuses the shared popup');
+    assert.equal(await touchPage.locator('.full-map .leaflet-popup-close-button').count(), 1);
+    assert.deepEqual(touchErrors, []);
+    await touchPage.close();
     assert.deepEqual(errors, []);
     assert.deepEqual(unexpected, []);
     console.log('PASS: route markers at 320/390/1280; chronological order; heading/missing speed; single/overlapping positions; popups; original links and line; three pages/151 points; overlap list details; unfiltered history and empty coverage at 320/390/1280');
