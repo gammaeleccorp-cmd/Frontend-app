@@ -138,6 +138,9 @@ const path = require('node:path');
     assert.equal(await page.locator('.full-map .leaflet-tooltip').count(), 0, 'no duplicate hover tooltip');
     await recordedPoint.click();
     const pointPopupText = await waitForPopup();
+    await page.waitForTimeout(100);
+    assert.equal(await page.locator('.full-map .leaflet-popup').count(), 1, 'click reuses the hover popup instance');
+    assert.equal(await page.locator('.full-map .leaflet-popup-close-button').count(), 1, 'one popup owns one close button');
     assert.match(pointPopupText, /عرض جغرافیایی|طول جغرافیایی/);
     assert.match(pointPopupText, /0 km\/h/);
     await page.locator('.leaflet-popup-close-button').click();
@@ -185,7 +188,9 @@ const path = require('node:path');
     // On phones and touch-enabled tablets, tap (not mouse hover) opens
     // the exact same single rounded detail card.
     paginated = false;
-    history = [last, first];
+    const middle = { ...first, id: 3, latitude: 35.71257, longitude: 51.38128,
+      recorded_at: '2026-11-21T09:30:00Z', speed: 18 };
+    history = [last, middle, first];
     const touchPage = await browser.newPage({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
     const touchErrors = [];
     touchPage.on('pageerror', error => touchErrors.push(error.message));
@@ -199,9 +204,17 @@ const path = require('node:path');
     const carOnTouch = touchPage.locator('.full-map .route-map-marker.end');
     await carOnTouch.waitFor();
     await carOnTouch.tap();
-    await touchPage.locator('.full-map .route-detail-popup .route-point-popup').waitFor({ state: 'visible' });
+    await touchPage.locator('.full-map .route-detail-popup .route-point-popup').waitFor({ state: 'visible' }).catch(async error => {
+      console.error({ touchErrors, popupCount: await touchPage.locator('.full-map .leaflet-popup').count(),
+        markerCount: await carOnTouch.count(), mapText: await touchPage.locator('.full-map').innerText() });
+      throw error;
+    });
     assert.equal(await touchPage.locator('.full-map .leaflet-popup').count(), 1);
     assert.equal(await touchPage.locator('.full-map .leaflet-tooltip').count(), 0);
+    await touchPage.locator('.route-recorded-point:not(.route-under-symbol)').tap();
+    await touchPage.locator('.full-map .route-detail-popup').getByText('نقطه ثبت‌شده', { exact: true }).waitFor({ state: 'visible' });
+    assert.equal(await touchPage.locator('.full-map .leaflet-popup').count(), 1, 'recorded-point tap reuses the shared popup');
+    assert.equal(await touchPage.locator('.full-map .leaflet-popup-close-button').count(), 1);
     assert.deepEqual(touchErrors, []);
     await touchPage.close();
     assert.deepEqual(errors, []);
