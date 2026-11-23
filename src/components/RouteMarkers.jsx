@@ -35,6 +35,11 @@ const hoverPopupHandlers = {
   mouseover(event) {
     if (isMouseHover(event)) event.target.openPopup();
   },
+  click(event) {
+    // Leaflet's built-in click handler toggles an already-hovered popup.
+    // Explicitly open it afterwards, including for touchscreen taps.
+    queueMicrotask(() => event.target.openPopup());
+  },
   // Leave click/tap-opened popups intact; mouseout can fire while the user
   // moves from the marker into the popup and would otherwise close it.
 };
