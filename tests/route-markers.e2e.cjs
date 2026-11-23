@@ -93,6 +93,7 @@ const path = require('node:path');
         // A mouse opens the single rounded card by hover, without a click.
         await car.hover();
         const carPopupText = await waitForPopup('پایان مسیر');
+        await page.waitForFunction(() => document.querySelectorAll('.full-map .leaflet-popup').length === 1);
         assert.equal(await page.locator('.full-map .leaflet-popup').count(),1);
         assert.equal(await page.locator('.full-map .leaflet-tooltip').count(),0);
         const expectedTimes = name === 'overlap' ? [first.recorded_at, last.recorded_at] : [name === 'single' ? first.recorded_at : last.recorded_at];
@@ -132,6 +133,7 @@ const path = require('node:path');
     const recordedPoint = page.locator('.route-recorded-point').nth(50);
     await recordedPoint.hover();
     await page.locator('.full-map .leaflet-popup .route-point-popup').getByText(/عرض جغرافیایی/).first().waitFor({ state: 'visible' });
+    await page.waitForFunction(() => document.querySelectorAll('.full-map .leaflet-popup').length === 1);
     assert.equal(await page.locator('.full-map .leaflet-popup').count(), 1, 'mouse hover shows one rounded card');
     assert.equal(await page.locator('.full-map .leaflet-tooltip').count(), 0, 'no duplicate hover tooltip');
     await recordedPoint.click();
