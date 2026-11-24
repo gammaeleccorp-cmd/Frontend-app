@@ -1,4 +1,4 @@
-import { ChevronDown, LogOut, Pencil, UserRound, Wifi } from "lucide-react";
+import { ChevronDown, ChevronLeft, PlusCircle, LogOut, Pencil, UserRound, Wifi } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import PageHeader from "../components/PageHeader";
 import { isoToJalali, jalaliToIso, normalizeJalaliInput } from "../utils/jalali.mjs";
@@ -18,7 +18,7 @@ export function connectionMessage(result) {
   return "سرویس گاما در حال حاضر در دسترس نیست. کمی بعد دوباره تلاش کنید.";
 }
 
-export default function ProfilePage({ user, onTestBackend, onBack, onLogout, onUpdate, defaultView = VIEWS.CLOSED }) {
+export default function ProfilePage({ onAddDevice, user, onTestBackend, onBack, onLogout, onUpdate, defaultView = VIEWS.CLOSED }) {
   const [view, setView] = useState(defaultView);
   const [form, setForm] = useState(() => formFromUser(user));
   const [saving, setSaving] = useState(false);
@@ -120,6 +120,21 @@ export default function ProfilePage({ user, onTestBackend, onBack, onLogout, onU
         </div>
       </form>}
     </section>
+
+    {onAddDevice && <button
+      type="button"
+      className="profile-add-device"
+      onClick={onAddDevice}
+    >
+      <span className="profile-add-device-icon">
+        <PlusCircle size={24} aria-hidden="true" />
+      </span>
+      <span className="profile-add-device-text">
+        <strong>ثبت دستگاه جدید</strong>
+        <small>افزودن دستگاه با کد اختصاصی</small>
+      </span>
+      <ChevronLeft size={20} aria-hidden="true" />
+    </button>}
 
     <section className="panel backend-test-card">
       <div className="mini-heading"><Wifi size={20} aria-hidden="true" /><strong>بررسی اتصال</strong></div>
