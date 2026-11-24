@@ -19,13 +19,26 @@ export function connectionMessage(result) {
   return "سرویس گاما در حال حاضر در دسترس نیست. کمی بعد دوباره تلاش کنید.";
 }
 
-export default function ProfilePage({ vehicle, onUpdateVehicle, onRegisterVehicle, onAddDevice, user, onTestBackend, onBack, onLogout, onUpdate, defaultView = VIEWS.CLOSED }) {
+export default function ProfilePage({ hasRegisteredDevice = false, showRegisteredDialog = false, onRegisteredDialogShown, vehicle, onUpdateVehicle, onRegisterVehicle, onAddDevice, user, onTestBackend, onBack, onLogout, onUpdate, defaultView = VIEWS.CLOSED }) {
   const [view, setView] = useState(defaultView);
   const [form, setForm] = useState(() => formFromUser(user));
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
   const [checking, setChecking] = useState(false);
   const [connection, setConnection] = useState(null);
+
+  const registeredDialogRef = useRef(null);
+
+  useEffect(() => {
+    if (hasRegisteredDevice && showRegisteredDialog) {
+      const dialog = registeredDialogRef.current;
+      if (dialog && !dialog.open) {
+        dialog.showModal();
+        onRegisteredDialogShown?.();
+      }
+    }
+  }, [hasRegisteredDevice, showRegisteredDialog, onRegisteredDialogShown]);
+
   const toggleRef = useRef(null);
   const editRef = useRef(null);
   const firstFieldRef = useRef(null);
@@ -125,14 +138,18 @@ export default function ProfilePage({ vehicle, onUpdateVehicle, onRegisterVehicl
     {onAddDevice && <button
       type="button"
       className="profile-add-device"
-      onClick={onAddDevice}
+
+      data-registered={hasRegisteredDevice}
+      onClick={() => hasRegisteredDevice
+        ? registeredDialogRef.current?.showModal()
+        : onAddDevice()}
     >
       <span className="profile-add-device-icon">
         <PlusCircle size={24} aria-hidden="true" />
       </span>
       <span className="profile-add-device-text">
         <strong>ثبت دستگاه جدید</strong>
-        <small>افزودن دستگاه با کد اختصاصی</small>
+        <small>{hasRegisteredDevice ? "دستگاه شما ثبت شده است" : "افزودن دستگاه با کد اختصاصی"}</small>
       </span>
       <ChevronLeft size={20} aria-hidden="true" />
     </button>}
@@ -142,6 +159,19 @@ export default function ProfilePage({ vehicle, onUpdateVehicle, onRegisterVehicl
       onUpdate={onUpdateVehicle}
       onRegisterVehicle={onRegisterVehicle}
     />}
+
+    {hasRegisteredDevice && <dialog
+      ref={registeredDialogRef}
+      className="device-registered-dialog"
+      aria-labelledby="device-registered-title"
+      dir="rtl"
+    >
+      <div className="device-registered-symbol" aria-hidden="true">✓</div>
+      <h3 id="device-registered-title">دستگاه شما ثبت شده است</h3>
+      <form method="dialog">
+        <button className="primary-btn">متوجه شدم</button>
+      </form>
+    </dialog>}
 
     <section className="panel backend-test-card">
       <div className="mini-heading"><Wifi size={20} aria-hidden="true" /><strong>بررسی اتصال</strong></div>
