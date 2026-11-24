@@ -120,12 +120,42 @@ const assert = require("node:assert/strict");
     }
     await page.setViewportSize({width:390,height:844});
     await page.goto(`${process.env.E2E_BASE || "http://127.0.0.1:5178"}/profile`);
-    await page.getByRole('button', {name:/ثبت دستگاه جدید/}).click();
-    await page.waitForURL('**/add-device');
-    await page.locator('#device-code').waitFor();
-    assert.equal(await page.locator('#device-code').count(),1);
-    await page.getByRole('button', {name:'بازگشت',exact:true}).click();
+    const registeredButton = page.getByRole('button', {
+      name:/ثبت دستگاه جدید/
+    });
+    assert.equal(
+      await registeredButton.getAttribute('data-registered'),
+      'true'
+    );
+
+    await registeredButton.click();
+
+    const dialog = page.getByRole('dialog', {
+      name:'دستگاه شما ثبت شده است'
+    });
+
+    await dialog.waitFor({state:'visible'});
+    await dialog.getByRole('button', {
+      name:'متوجه شدم'
+    }).click();
+    await dialog.waitFor({state:'hidden'});
+
     await page.waitForURL('**/profile');
+
+    await page.reload();
+    await registeredButton.waitFor();
+    assert.equal(
+      await registeredButton.getAttribute('data-registered'),
+      'true'
+    );
+
+    await page.goto(new URL('/add-device', page.url()).href);
+    await page.waitForURL('**/profile');
+    await dialog.waitFor({state:'visible'});
+    await dialog.getByRole('button', {
+      name:'متوجه شدم'
+    }).click();
+    await dialog.waitFor({state:'hidden'});
     await page.goto(`${process.env.E2E_BASE || "http://127.0.0.1:5178"}/home`);
     assert.equal(await page.locator('a[href*="nshn.ir"]').count(),0);
     await page.goto(`${process.env.E2E_BASE || "http://127.0.0.1:5178"}/vehicle`);
