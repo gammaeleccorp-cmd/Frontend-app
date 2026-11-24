@@ -76,13 +76,11 @@ const path = require('node:path');
           });
           assert.equal(centered, true, `${selector} at ${width}`);
         }
-        const cards = await page.locator('.tracker-overview,.speed-card,.geofence-card,.map-preview-panel').evaluateAll(elements => elements.map(el => {
+        const cards = await page.locator('.tracker-overview,.speed-card').evaluateAll(elements => elements.map(el => {
           const box = el.getBoundingClientRect(), style = getComputedStyle(el);
           return { x: box.x, width: box.width, radius: style.borderRadius, left: style.paddingLeft, right: style.paddingRight };
         }));
         assert.deepEqual(cards[0], cards[1], `summary/speed alignment at ${width}`);
-        assert.deepEqual(cards[0], cards[2], `geofence card alignment at ${width}`);
-        assert.deepEqual(cards[0], cards[3], `surrounding card alignment at ${width}`);
         for (const target of ['.speed-card', '.speed-details', '.battery-detail']) {
           await page.locator(target).scrollIntoViewIfNeeded();
           const bounds = await page.locator('.app-scroll').boundingBox();

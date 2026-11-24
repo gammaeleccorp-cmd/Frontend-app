@@ -164,8 +164,10 @@ const assert = require("node:assert/strict");
     await page.goto(`${process.env.E2E_BASE || "http://127.0.0.1:5178"}/home`);
     await page.locator(".tracker-overview").waitFor();
 
-    await page.locator(".geofence-card").waitFor();
-    await page.locator(".geofence-card button").click();
+    assert.equal(await page.locator(".geofence-card").count(), 0);
+    assert.equal(await page.locator(".map-preview-panel").count(), 0);
+    assert.equal(await page.getByText("نقاط ثبت‌شده", {exact:true}).count(), 0);
+    await page.goto(`${process.env.E2E_BASE || "http://127.0.0.1:5178"}/routes`);
     await page.waitForURL("**/routes");
 
     const disclosure=page.locator('.route-history');
