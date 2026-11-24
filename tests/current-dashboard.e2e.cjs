@@ -119,10 +119,14 @@ const assert = require("node:assert/strict");
       assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
     }
     await page.setViewportSize({width:390,height:844});
-    await page.goto(`${process.env.E2E_BASE || "http://127.0.0.1:5178"}/add-device`);
-    await page.waitForURL('**/home');
-    await page.locator(".tracker-overview").waitFor();
-    assert.equal(await page.locator('#device-code').count(),0);
+    await page.goto(`${process.env.E2E_BASE || "http://127.0.0.1:5178"}/profile`);
+    await page.getByRole('button', {name:/ثبت دستگاه جدید/}).click();
+    await page.waitForURL('**/add-device');
+    await page.locator('#device-code').waitFor();
+    assert.equal(await page.locator('#device-code').count(),1);
+    await page.getByRole('button', {name:'بازگشت',exact:true}).click();
+    await page.waitForURL('**/profile');
+    await page.goto(`${process.env.E2E_BASE || "http://127.0.0.1:5178"}/home`);
     assert.equal(await page.locator('a[href*="nshn.ir"]').count(),0);
     await page.goto(`${process.env.E2E_BASE || "http://127.0.0.1:5178"}/vehicle`);
     await page.getByRole('heading', { name: 'دستگاه نگهبان', exact: true }).waitFor();

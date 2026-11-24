@@ -1,3 +1,4 @@
+import DeviceOnboardingPage from "./pages/DeviceOnboardingPage";
 import { newestSample } from "./utils/flag15.mjs";
 import { getLatestDeviceTelemetry } from "./api/gammaApi";
 import useGeofence from "./hooks/useGeofence";
@@ -225,7 +226,35 @@ function AppFrame({ data, setData }) {
 function useApp() { return useOutletContext(); }
 function useBack(fallback = "/home") { const navigate = useNavigate(); return () => { if (window.history.state?.idx > 0) navigate(-1); else navigate(fallback); }; }
 function HomeRoute() { const { data, product, now, geofence } = useApp(); const navigate = useNavigate(); if (!data.devices?.length) return <WelcomeStartPage />; return <HomePage product={product} data={data} geofence={geofence} now={now} onNavigate={(path) => navigate(path.startsWith("/") ? path : `/${path}`)} onDtcOpen={(dtc) => navigate(`/diagnostics/${dtc.code}`, { state: { dtc } })} />; }
-function AddDeviceRoute() { return <Navigate to="/home" replace />; }
+function AddDeviceRoute() {
+  const { setData, showToast } = useApp();
+  const navigate = useNavigate();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  const submit = async (payload) => {
+    if (busy) return;
+    setBusy(true);
+    setError("");
+    try {
+      await repo.bindDevice(payload);
+      setData(await repo.getBootstrapData());
+      showToast("دستگاه با موفقیت ثبت شد.");
+      navigate("/home", { replace: true });
+    } catch (err) {
+      setError(err?.message || "ثبت دستگاه ناموفق بود.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return <DeviceOnboardingPage
+    loading={busy}
+    error={error}
+    onSubmit={submit}
+    onBack={() => navigate("/profile")}
+  />;
+}
 function VehicleRoute() {
   const { data, product, now, setData, showToast } = useApp(); const navigate = useNavigate();
   const update = async (changes) => { if (!data.vehicle?.id) return; const raw = await repo.updateVehicle(data.vehicle.id, changes); setData((current) => ({ ...current, vehicle: { ...current.vehicle, ...raw, id: current.vehicle.id, model: raw.model || "—", year: String(raw.production_year || "—"), production_year: raw.production_year, plate: raw.license_plate || "—", color: raw.color || "—" } })); showToast("اطلاعات خودرو ذخیره شد."); };
@@ -240,7 +269,7 @@ function ConnectionRoute() { const { product, data, setData, showToast } = useAp
 function OtaRoute() { const { product, data } = useApp(); const back = useBack(); if (product !== PRODUCTS.LUMINEN) return <Navigate to="/home" replace />; return <OtaPage vehicle={data.vehicle} onCheck={repo.checkOta} onBack={back} />; }
 function RoutesRoute() { const { product, data, now, setData, geofence } = useApp(); const back = useBack(); const [syncing, setSyncing] = useState(false); const [syncError, setSyncError] = useState(""); if (product !== PRODUCTS.NEGAHBAN) return <Navigate to="/home" replace />; const sync = async () => { setSyncing(true); setSyncError(""); try { setData(await repo.syncNegahban()); } catch (error) { setSyncError(error?.message || "به‌روزرسانی ناموفق بود."); } finally { setSyncing(false); } }; return <RoutesPage geofence={geofence} routePoints={data.routePoints} routeHistory={data.routeHistory} latestTelemetry={data.latestTelemetry} deviceCode={data.vehicle?.deviceCode} online={isTelemetryFresh({ recorded_at: data.routeHistory?.[0]?.recordedAt }, now)} historyError={syncError || data.historyError} onSync={sync} syncing={syncing} onBack={back} />; }
 function MpuRoute() { const { product, data } = useApp(); const back = useBack(); if (product !== PRODUCTS.NEGAHBAN) return <Navigate to="/home" replace />; return <MpuPage events={data.mpuEvents} onBack={back} />; }
-function ProfileRoute() { const { data, setData, showToast, logout } = useApp(); const back = useBack(); const update = async (changes) => { const raw = await repo.updateProfile(changes); setData((current) => ({ ...current, user: { ...current.user, firstName: raw?.first_name ?? changes.first_name, lastName: raw?.last_name ?? changes.last_name, birthDate: raw?.birth_date ?? changes.birth_date } })); showToast("پروفایل ذخیره شد."); }; return <ProfilePage user={data.user} onUpdate={update} onTestBackend={repo.testBackendConnection} onBack={back} onLogout={logout} />; }
+function ProfileRoute() { const navigate = useNavigate(); const { data, setData, showToast, logout } = useApp(); const back = useBack(); const update = async (changes) => { const raw = await repo.updateProfile(changes); setData((current) => ({ ...current, user: { ...current.user, firstName: raw?.first_name ?? changes.first_name, lastName: raw?.last_name ?? changes.last_name, birthDate: raw?.birth_date ?? changes.birth_date } })); showToast("پروفایل ذخیره شد."); }; return <ProfilePage onAddDevice={() => navigate("/add-device")} user={data.user} onUpdate={update} onTestBackend={repo.testBackendConnection} onBack={back} onLogout={logout} />; }
 
 void legacyOtpRoute;
 void legacyAppFrame;

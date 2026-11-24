@@ -880,3 +880,53 @@ button:disabled { opacity: .55; cursor: not-allowed; }
 
 /* Keep the location empty state available alongside the shared GEO map. */
 .map-panel > .map-no-location { height: auto; padding: 14px; margin-top: 10px; }
+
+/* Flag18 - Profile device registration */
+.profile-add-device {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 15px;
+  direction: rtl;
+  text-align: right;
+  border: 1px solid rgba(249,115,22,.55);
+  border-radius: 16px;
+  background: rgba(249,115,22,.07);
+  color: #f97316;
+  font: inherit;
+  cursor: pointer;
+  transition: background .2s, border-color .2s;
+}
+.profile-add-device:hover {
+  background: rgba(249,115,22,.13);
+  border-color: #f97316;
+}
+.profile-add-device:focus-visible {
+  outline: 2px solid #f97316;
+  outline-offset: 3px;
+}
+.profile-add-device-icon {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 46px;
+  height: 46px;
+  border-radius: 13px;
+  background: rgba(249,115,22,.12);
+}
+.profile-add-device-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 5px;
+}
+.profile-add-device-text strong {
+  font-size: 14px;
+  font-weight: 700;
+}
+.profile-add-device-text small {
+  font-size: 11px;
+  color: inherit;
+  opacity: .85;
+}

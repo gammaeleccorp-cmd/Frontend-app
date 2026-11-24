@@ -17,11 +17,11 @@ function json(payload, status = 200, type = "application/json") {
   return new Response(typeof payload === "string" ? payload : JSON.stringify(payload), { status, headers: { "content-type": type } });
 }
 
-test("start screen shows one RTL registration message without a button and guards /add-device", async () => {
+test("start screen keeps registration in profile and enables /add-device", async () => {
   const { default: WelcomeStartPage } = await load("/src/pages/WelcomeStartPage.jsx");
   const html = renderToStaticMarkup(createElement(WelcomeStartPage, { onStart: noop }));
   assert.match(html, /به گاما خوش آمدید/);
-  assert.equal((html.match(/ثبت دستگاه فعلاً در دسترس نیست\./g) || []).length, 1);
+  assert.equal((html.match(/برای ثبت دستگاه به بخش پروفایل مراجعه کنید\./g) || []).length, 1);
   assert.match(html, /dir="rtl"/);
   assert.doesNotMatch(html, /<button|disabled|افزودن دستگاه|شروع ردیابی/);
 
@@ -37,7 +37,9 @@ test("start screen shows one RTL registration message without a button and guard
   assert.match(appSource, /if \(!data\.devices\?\.length\) return <WelcomeStartPage \/>/);
   assert.match(appSource, /<Route path="\/add-device" element=\{<AddDeviceRoute \/>\} \/>/);
   assert.doesNotMatch(appSource, /home-actions|registration-status|افزودن دستگاه|ثبت دستگاه .*در دسترس نیست/);
-  assert.match(appSource, /function AddDeviceRoute\(\) \{ return <Navigate to="\/home" replace \/>; \}/);
+  assert.match(appSource, /await repo\.bindDevice\(payload\)/);
+  assert.match(appSource, /<DeviceOnboardingPage/);
+  assert.match(appSource, /onAddDevice=\{\(\) => navigate\("\/add-device"\)\}/);
   assert.match(appSource, /<HomePage product=\{product\} data=\{data\}/, "dashboard for users with devices is kept");
 });
 
@@ -52,7 +54,7 @@ test("device code keeps NG-XXXX format, Persian digits and zero padding", async 
 
 test("profile is a collapsed bar first, readable on open, editable via ویرایش", async () => {
   const { default: ProfilePage, connectionMessage } = await load("/src/pages/ProfilePage.jsx");
-  const props = { user, onBack: noop, onLogout: noop, onTestBackend: noop, onUpdate: noop };
+  const props = { user, onBack: noop, onLogout: noop, onTestBackend: noop, onUpdate: noop, onAddDevice: noop };
 
   const closed = renderToStaticMarkup(createElement(ProfilePage, props));
   assert.match(closed, /aria-expanded="false"/);
@@ -79,6 +81,8 @@ test("profile is a collapsed bar first, readable on open, editable via ویرا�
 
   for (const html of [closed, details, edit]) {
     assert.match(html, /بررسی اتصال/);
+    assert.match(html, /ثبت دستگاه جدید/);
+    assert.match(html, /profile-add-device/);
     assert.doesNotMatch(html, /Backend|HTTP/);
     assert.doesNotMatch(html, /کد ملی|0012345678/);
   }
