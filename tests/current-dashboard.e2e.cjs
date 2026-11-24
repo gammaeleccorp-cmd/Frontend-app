@@ -335,7 +335,15 @@ const assert = require("node:assert/strict");
     }
     await context.grantPermissions(['geolocation']);
     await context.setGeolocation({latitude:35.74,longitude:51.42});
-    await page.getByRole('button',{name:'مسیریابی با نشان'}).click();
+    const neshanButton = page.getByRole('button',{name:'مسیریابی با نشان'});
+    const neshanLogo = neshanButton.locator('img');
+    await neshanLogo.waitFor({state:'visible'});
+    await page.waitForFunction(() => {
+      const img = document.querySelector('img[src="/icons/neshan-logo.webp"]');
+      return img?.complete && img.naturalWidth > 0;
+    });
+    assert.equal(await neshanButton.innerText(), 'مسیریابی');
+    await neshanButton.click();
     await page.waitForURL(url=>url.hostname==='nshn.ir' && url.searchParams.get('vehicle')==='d');
     const destination=new URL(page.url());
     assert.equal(destination.searchParams.get('origin'),'35.74,51.42');

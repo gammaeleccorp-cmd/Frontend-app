@@ -57,8 +57,9 @@ export default function RoutesPage({ geofence, routePoints = [], routeHistory = 
       <button type="button" className="secondary-btn route-refresh" disabled={syncing} onClick={onSync}>
         <RefreshCcw size={16} className={syncing ? "spin" : ""} />{syncing ? "در حال به‌روزرسانی..." : "به‌روزرسانی موقعیت‌ها"}
       </button>
-      {lastPoint && <button type="button" className="secondary-btn route-refresh" disabled={locating} onClick={navigateToVehicle}>
-        <MapPinned size={16} aria-hidden="true" />{locating ? "در حال دریافت موقعیت شما..." : "مسیریابی با نشان"}
+      {lastPoint && <button type="button" className="secondary-btn route-refresh" disabled={locating} aria-label="مسیریابی با نشان" title="مسیریابی با نشان" onClick={navigateToVehicle}>
+        <img src="/icons/neshan-logo.webp" alt="" width={26} height={26} style={{ objectFit: "contain", borderRadius: 6 }} />
+        {locating ? "در حال دریافت موقعیت شما..." : "مسیریابی"}
       </button>}
       {navigationError && <p role="alert" className="form-error">{navigationError}</p>}
     <details className="route-history">
