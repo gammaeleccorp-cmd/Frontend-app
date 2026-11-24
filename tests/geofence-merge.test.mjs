@@ -44,9 +44,9 @@ test("merged dashboard retains ACC, crash details, inbox, and geofence API", asy
       assert.equal(data.notifications.unread_count, 1);
       const html = renderToStaticMarkup(createElement(HomePage, { product: "NEGAHBAN", data, now: Date.parse(crash.recorded_at), geofence: { value: configured }, onNavigate() {} }));
       const pair = html.match(/<section class="metrics negahban-metrics">([\s\S]*?)<\/section>/)?.[1];
-      assert.ok(pair, "switch and geofence remain in the dashboard metrics");
-      assert.ok(pair.indexOf("وضعیت سوییچ") < pair.indexOf("محدوده جغرافیایی"));
-      assert.match(pair, /داخل محدوده/);
+      assert.ok(pair, "switch remains in the dashboard metrics");
+      assert.match(pair, /وضعیت سوییچ/);
+      assert.doesNotMatch(html, /geofence-card|محدوده جغرافیایی/);
       assert.ok(pair.includes(`>${label}</span>`));
       assert.doesNotMatch(html, /crash-alert/);
       const header = renderToStaticMarkup(createElement(Header, { product: "NEGAHBAN", notifications: data.notifications }));
