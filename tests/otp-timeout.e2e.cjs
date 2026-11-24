@@ -1,0 +1,109 @@
+const {chromium} = require('playwright');
+const assert = require('node:assert/strict');
+const fs = require('fs');
+const path = require('path');
+(async () => {
+  const browser = await chromium.launch({executablePath:process.env.CHROMIUM_PATH || undefined,headless:true});
+  const page = await browser.newPage({viewport:{width:390,height:844}, deviceScaleFactor:1, isMobile:true, hasTouch:true});
+  const requests=[], errors=[]; let bound=false, failBinding=0;
+  page.on('pageerror', e=>errors.push(e.message));
+  // All API traffic is intercepted: never send an account or OTP to production.
+  await page.route('https://api.gamma-tech.ir/**', async route => {
+    const req=route.request(), url=new URL(req.url()), body=req.postDataJSON();
+    requests.push({path:url.pathname,method:req.method(),body});
+    let status=200, data={};
+    if(url.pathname.endsWith('/otp/request/')) { status=body.flow==='login'?200:202; data=body.flow==='login'?{registration_required:true}:{code:'SMS_DELIVERY_UNKNOWN',detail:'SMS delivery status is unknown.'}; }
+    else if(url.pathname.endsWith('/otp/verify/')) { assert.equal(body.code,'00123'); data={access:'isolated-browser-test',refresh:'isolated-refresh'}; }
+    else if(url.pathname.endsWith('/otp/me/')) data={first_name:'تست',last_name:'کاربر',mobile:'09111111111',birth_date:'2000-03-20',preferred_product:'LUMINEN'};
+    else if(url.pathname.endsWith('/vehicles/')) data=[];
+    else if(url.pathname.endsWith('/devices/activate/')) {
+      assert.deepEqual(body,{device_code:'NG-0001'});
+      if(failBinding===1) { status=404;data={detail:'Device was not found.'}; }
+      else if(failBinding===2) return route.abort('internetdisconnected');
+      else {status=201;bound=true;data={device:{device_code:'NG-0001'}};}
+    } else if(url.pathname.endsWith('/devices/')) data=bound?[{id:'test-board',device_code:'NG-0001',product_type:'NEGAHBAN',status:'ACTIVE'}]:[];
+    else if(url.pathname.endsWith('/telemetry/devices/NG-0001/latest/')) data=null;
+    else if(url.pathname.endsWith('/telemetry/devices/NG-0001/history/')) data=[];
+    else if(url.pathname.endsWith('/devices/NG-0001/status/')) data={device_code:'NG-0001',online:false,last_seen:null,server_time:new Date().toISOString(),vehicle:null,latest_telemetry:null,location:null};
+    else if(url.pathname.endsWith('/devices/NG-0001/telemetry/')) data=[];
+    else if(url.pathname.endsWith('/devices/NG-0001/geofence/')) { status=404; data={detail:'Geofence is not configured.'}; }
+    else if(url.pathname.endsWith('/notifications/')) data={unread_count:0,items:[]};
+    else throw Error('Unexpected API '+url.pathname);
+    await route.fulfill({status,contentType:'application/json',body:JSON.stringify(data)});
+  });
+  await page.goto((process.env.E2E_BASE||'http://127.0.0.1:5177')+'/login');
+  await page.locator('#mobile').fill('09111111111');
+  await page.getByRole('button',{name:'ثبت‌نام',exact:true}).click();
+  await page.waitForURL('**/register');
+  await page.getByRole('heading',{name:'ثبت‌نام در گاما',exact:true}).waitFor();
+  await page.locator('#mobile').fill('');
+  await page.locator('#mobile').pressSequentially('09111111111');
+  assert.equal(await page.locator('#mobile').inputValue(),'09111111111');
+  await page.locator('#firstName').fill('تست');
+  await page.locator('#lastName').fill('کاربر');
+  await page.locator('#birthDate').pressSequentially('1379.01.01');
+  assert.equal(await page.locator('#birthDate').inputValue(),'1379.01.01');
+  await page.locator('#deviceModel').selectOption('LUMINEN');
+  assert.equal(await page.locator('input:not([type=checkbox])').count(),4);
+  for(const id of ['mobile','birthDate']) {
+    const style=await page.locator('#'+id).evaluate(el=>({align:getComputedStyle(el).textAlign,dir:getComputedStyle(el).direction,color:getComputedStyle(el).color,placeholder:getComputedStyle(el,'::placeholder').color}));
+    assert.equal(style.align,'start');assert.equal(style.dir,'ltr');assert.notEqual(style.color,style.placeholder);
+  }
+  assert.equal(await page.locator('#firstName').getAttribute('dir'),'rtl');
+  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
+  fs.mkdirSync(process.env.E2E_SHOTS||path.join(__dirname,'../../screenshots'),{recursive:true});
+  const shots=process.env.E2E_SHOTS||path.join(__dirname,'../../screenshots');
+  await page.screenshot({path:path.join(shots,'register-mobile.png'),fullPage:true});
+  await page.getByRole('button',{name:'دریافت کد تأیید',exact:true}).click();
+  await page.waitForFunction(() => location.pathname === '/otp' || document.querySelector('.form-error,.field-error'));
+  if (new URL(page.url()).pathname !== '/otp') {
+    const failure = await page.locator('.form-error,.field-error').first().innerText();
+    throw new Error(`Registration did not continue: ${failure}`);
+  }
+  await page.waitForURL('**/otp');
+  await page.getByText(
+    'در صورت دریافت پیامک، کد تأیید را وارد کنید.',
+    {exact:true}
+  ).waitFor({state:'visible'});
+  console.log('PASS: HTTP 202 opens OTP page with Persian delivery notice.');
+  await page.locator('.otp').first().waitFor({state:'visible'});
+  const registration=requests.find(r=>r.body?.registration).body;
+  assert.deepEqual(Object.keys(registration.registration).sort(),['birthDate','deviceModel','firstName','lastName']);
+  assert.equal(registration.registration.birthDate,'2000-03-20');
+  assert.equal(await page.locator('.otp').count(),5);
+  for (const [index, digit] of [...'00123'].entries()) {
+      await page.locator('.otp').nth(index).fill(digit);
+    }
+    await page.getByRole('button', {name:'ورود به داشبورد', exact:true}).waitFor({state:'visible'});
+    assert.equal(
+      await page.getByRole('button', {name:'ورود به داشبورد', exact:true}).isEnabled(),
+      true
+    );
+  await page.screenshot({path:path.join(shots,'otp-mobile.png'),fullPage:true});
+  await page.getByRole('button',{name:'ورود به داشبورد',exact:true}).click();
+  await page.waitForURL('**/home');
+  await page.getByRole('heading',{name:'به گاما خوش آمدید'}).waitFor();
+  for (const width of [320,1280]) {
+    await page.setViewportSize({width,height:844});
+    const empty=page.locator('.welcome-start');
+    assert.equal(await empty.count(),1);
+    assert.equal(await empty.getAttribute('dir'),'rtl');
+    assert.equal(await empty.getByText('برای ثبت دستگاه به بخش پروفایل مراجعه کنید.',{exact:true}).count(),1);
+    assert.equal(await empty.locator('button').count(),0);
+    assert.equal(await page.getByRole('button',{name:'افزودن دستگاه',exact:true}).count(),0);
+    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
+    await page.screenshot({path:path.join(shots,`no-device-${width}.png`),fullPage:true});
+  }
+  await page.goto(`${process.env.E2E_BASE || "http://127.0.0.1:4173"}/profile`);
+    await page.getByRole('button', {name:/ثبت دستگاه جدید/}).click();
+    await page.waitForURL('**/add-device');
+    await page.locator('#device-code').waitFor();
+    assert.equal(await page.locator('#device-code').count(),1);
+    await page.getByRole('button', {name:'بازگشت',exact:true}).click();
+    await page.waitForURL('**/profile');
+    await page.goto(`${process.env.E2E_BASE || "http://127.0.0.1:4173"}/home`);
+  assert.deepEqual(errors,[]);
+  if(!process.env.E2E_SHOTS) fs.writeFileSync(path.join(__dirname,'../../browser-test-results.json'),JSON.stringify({passed:true,viewport:'390x844',api:'intercepted test service',requests},null,2));
+  console.log('PASS: registration → 5-digit OTP → no-device empty state at 320px/desktop → profile device registration; RTL/LTR, alignment, placeholders, typing, no vehicle payload.');
+  await browser.close();
+})().catch(e=>{console.error(e);process.exit(1)});

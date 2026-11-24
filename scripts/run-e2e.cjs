@@ -17,6 +17,7 @@ async function run(file) {
   if (!ready) throw new Error('Preview did not become ready');
   const suites = [
     'tests/mobile-flow.cjs',
+    'tests/otp-timeout.e2e.cjs',
     'tests/current-dashboard.e2e.cjs',
     'tests/compact-dashboard.e2e.cjs',
     'tests/route-markers.e2e.cjs',

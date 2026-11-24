@@ -47,20 +47,58 @@ export default function App() {
   return <BrowserRouter><Routes><Route path="/login" element={<LoginRoute />} /><Route path="/register" element={<RegisterRoute />} /><Route path="/otp" element={<OtpRoute />} /><Route element={<ProtectedLayout />}><Route path="/home" element={<HomeRoute />} /><Route path="/add-device" element={<AddDeviceRoute />} /><Route path="/vehicle" element={<VehicleRoute />} /><Route path="/profile" element={<ProfileRoute />} /><Route path="/diagnostics" element={<DiagnosticsRoute />} /><Route path="/diagnostics/:code" element={<DtcRoute />} /><Route path="/ecu-live" element={<EcuRoute />} /><Route path="/connection" element={<ConnectionRoute />} /><Route path="/ota" element={<OtaRoute />} /><Route path="/routes" element={<RoutesRoute />} /><Route path="/imu-events" element={<MpuRoute />} /></Route><Route path="*" element={<Navigate to="/home" replace />} /></Routes></BrowserRouter>;
 }
 
+const OTP_DELIVERY_UNKNOWN_NOTICE =
+  "در صورت دریافت پیامک، کد تأیید را وارد کنید.";
+
+function otpDeliveryNotice(payload, fallback = "") {
+  return payload?.code === "SMS_DELIVERY_UNKNOWN"
+    ? OTP_DELIVERY_UNKNOWN_NOTICE
+    : fallback;
+}
+
+function otpRequestError(error, fallback) {
+  const code = error?.payload?.code;
+
+  if (code === "SMS_SEND_FAILED") {
+    return "ارسال پیامک ناموفق بود. لطفاً مجدداً تلاش کنید.";
+  }
+
+  if (error?.status === 429) {
+    return "محدودیت دریافت کد فعال است. لطفاً کمی صبر کنید.";
+  }
+
+  return fallback;
+}
+
 function LoginRoute() {
   const navigate = useNavigate(); const [mobile, setMobile] = useState(""); const [rememberMe, setRememberMe] = useState(false); const [busy, setBusy] = useState(false); const [error, setError] = useState("");
   const [intro, setIntro] = useState("playing");
+  const requestLock = useRef(false);
   if (repo.hasSession()) return <Navigate to="/home" replace />;
   const submit = async () => { setBusy(true); setError(""); try { await repo.requestOtp(mobile); navigate("/otp", { state: { mobile } }); } catch (err) { setError(err?.message || "ارسال کد ناموفق بود."); } finally { setBusy(false); } };
   const submitWithRemember = async () => {
+    if (requestLock.current) return;
+    requestLock.current = true;
     setBusy(true);
     setError("");
     try {
-      await repo.requestLoginOtp(mobile);
-      navigate("/otp", { state: { flow: "login", mobile, rememberMe } });
+      const result = await repo.requestLoginOtp(mobile);
+      if (result?.registration_required) {
+        navigate("/register", { state: { mobile } });
+        return;
+      }
+      navigate("/otp", {
+        state: {
+          flow: "login",
+          mobile,
+          rememberMe,
+          deliveryNotice: otpDeliveryNotice(result),
+        },
+      });
     } catch (err) {
-      setError(err?.message || "ارسال کد ناموفق بود.");
+      setError(otpRequestError(err, "ارسال کد ناموفق بود."));
     } finally {
+      requestLock.current = false;
       setBusy(false);
     }
   };
@@ -76,6 +114,7 @@ function RegisterRoute() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [fieldErrors, setFieldErrors] = useState({});
+  const requestLock = useRef(false);
   if (repo.hasSession()) return <Navigate to="/home" replace />;
 
   const changeField = (key, value) => {
@@ -94,12 +133,28 @@ function RegisterRoute() {
     if (!["NEGAHBAN", "RAHBAN", "LUMINEN"].includes(form.deviceModel)) nextErrors.deviceModel = "مدل دستگاه را انتخاب کنید.";
     setFieldErrors(nextErrors);
     if (Object.keys(nextErrors).length) { setError("لطفاً خطاهای مشخص‌شده را برطرف کنید."); return; }
+    if (requestLock.current) return;
+    requestLock.current = true;
     setBusy(true); setError(""); setFieldErrors({});
     try {
-      await repo.requestRegistrationOtp(form);
-      navigate("/otp", { state: { flow: "registration", mobile: form.mobile, rememberMe, registration: form } });
-    } catch (err) { setError(err?.message || "ارسال کد ناموفق بود."); setFieldErrors(err?.payload?.registration || {}); }
-    finally { setBusy(false); }
+      const result = await repo.requestRegistrationOtp(form);
+      navigate("/otp", {
+        state: {
+          flow: "registration",
+          mobile: form.mobile,
+          rememberMe,
+          registration: form,
+          deliveryNotice: otpDeliveryNotice(result),
+        },
+      });
+    } catch (err) {
+      setError(otpRequestError(err, "ارسال کد ناموفق بود."));
+      setFieldErrors(err?.payload?.registration || {});
+    }
+    finally {
+      requestLock.current = false;
+      setBusy(false);
+    }
   };
   return <RegisterPage form={form} onChange={changeField} rememberMe={rememberMe} onRememberMeChange={setRememberMe} onSubmit={submit} onLogin={() => navigate("/login")} loading={busy} error={error} fieldErrors={fieldErrors} />;
 }
@@ -122,19 +177,35 @@ function OtpRoute() {
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [notice, setNotice] = useState("");
+  const [notice, setNotice] = useState(
+    location.state?.deliveryNotice || ""
+  );
+  const requestLock = useRef(false);
   if (!mobile || (flow === "registration" && !registration)) return <Navigate to={flow === "registration" ? "/register" : "/login"} replace />;
   const verify = async () => {
+    if (requestLock.current) return;
+    requestLock.current = true;
     setBusy(true); setError("");
     try { await repo.verifyOtp({ mobile, code, flow, registration, rememberMe }); navigate("/home", { replace: true }); }
     catch (err) { setError(err?.message || "تأیید کد ناموفق بود."); }
-    finally { setBusy(false); }
+    finally { requestLock.current = false; setBusy(false); }
   };
   const resend = async () => {
+    if (requestLock.current) return;
+    requestLock.current = true;
     setBusy(true); setError("");
-    try { await repo.resendOtp({ flow, mobile, registration }); setNotice("کد تأیید مجدداً ارسال شد."); }
-    catch (err) { setError(err?.message || "ارسال مجدد ناموفق بود."); }
-    finally { setBusy(false); }
+    setNotice("");
+    try {
+      const result = await repo.resendOtp({ flow, mobile, registration });
+      setCode("");
+      setNotice(
+        otpDeliveryNotice(result, "کد تأیید مجدداً ارسال شد.")
+      );
+    }
+    catch (err) {
+      setError(otpRequestError(err, "ارسال مجدد ناموفق بود."));
+    }
+    finally { requestLock.current = false; setBusy(false); }
   };
   return <OtpPage mobile={mobile} flow={flow} code={code} onCodeChange={setCode} onVerify={verify} onBack={() => navigate(flow === "registration" ? "/register" : "/login", { state: { registration, mobile } })} onResend={resend} notice={notice} loading={busy} error={error} />;
 }
