@@ -24,7 +24,9 @@ test("Negahban pages render without a vehicle or fresh telemetry", async () => {
     assert.match(home, /Offline/);
     assert.match(home, /class="speed-card"/);
     assert.match(home, /سرعت دریافت نشده/);
-    assert.match(home, /مشاهده نقشه و مسیرها/);
+    assert.doesNotMatch(home, /مشاهده نقشه و مسیرها/);
+    assert.doesNotMatch(home, /geofence-card|map-preview-panel/);
+    assert.doesNotMatch(home, /نقاط ثبت‌شده/);
 
     const vehicle = renderToStaticMarkup(createElement(VehiclePage, { product: "NEGAHBAN", data, now: Date.parse("2026-10-07T10:00:00Z"), onBack() {}, onRoutes() {} }));
     assert.match(vehicle, /ثبت خودرو اختیاری است/);

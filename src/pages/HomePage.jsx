@@ -1,11 +1,9 @@
-import { recordedPosition, liveSpeed } from "../utils/flag15.mjs";
-import GeofenceCard from "../components/GeofenceCard";
+import { liveSpeed } from "../utils/flag15.mjs";
 import {
   Bluetooth,
   Car,
   Radio,
   RefreshCcw,
-  Route,
   ShieldCheck,
   Wifi,
 } from "lucide-react";
@@ -16,7 +14,7 @@ import { switchState } from "../utils/telemetry.mjs";
 import StatusBadge from "../components/StatusBadge";
 import GammaStatus from "../components/motion/GammaStatus";
 import { PRODUCTS, VIEWS } from "../data/mockData";
-import { coordinates, formatTelemetryTime, isTelemetryFresh } from "../utils/telemetry.mjs";
+import { formatTelemetryTime } from "../utils/telemetry.mjs";
 
 export default function HomePage({
   product,
@@ -135,10 +133,6 @@ function LuminenHome({ data, onNavigate, onDtcOpen }) {
 }
 
 function NegahbanHome({ data, now, onNavigate }) {
-  const locationFresh = isTelemetryFresh({ recorded_at: data.latestTelemetry?.recorded_at }, now) && !!coordinates(data.latestTelemetry);
-  const position = recordedPosition(data);
-  const location = position?.coordinates;
-  const locationTime = position?.recordedAt;
   const device = data.vehicle || {};
   const battery = data.negahbanMetrics.find((item) => item.icon === "battery")?.value;
 
@@ -149,53 +143,10 @@ function NegahbanHome({ data, now, onNavigate }) {
       <section className="metrics negahban-metrics">
         <Speedometer value={liveSpeed(data.latestTelemetry, now)} fresh={liveSpeed(data.latestTelemetry, now) !== null} switchStatus={switchState(data.latestTelemetry, now)} battery={battery} />
         {data.negahbanMetrics.filter(item => item.icon !== "power" && item.icon !== "battery" && item.unit !== "km/h").map(item => <MetricCard key={item.label} item={item} />)}
-        <GeofenceCard geofence={data.geofence?.value} loading={data.geofence?.loading} error={data.geofence?.error} onOpen={() => onNavigate(VIEWS.ROUTES)} />
       </section>
       {!data.negahbanMetrics.length && <div className="empty-state">هنوز دادهٔ اندازه‌گیری از دستگاه دریافت نشده است.</div>}
       {data.telemetryError && <p className="form-error" role="alert">{data.telemetryError}</p>}
 
-      <section className="panel map-preview-panel">
-        <div className="section-title">
-          <div>
-            <p className="eyebrow no-margin">LOCATION</p>
-            <h3>آخرین موقعیت ثبت‌شده</h3>
-          </div>
-          <StatusBadge tone={locationFresh ? "success" : "warning"}>{locationFresh ? "تازه" : "قدیمی یا نامشخص"}</StatusBadge>
-        </div>
-
-        <div className="location-summary-grid">
-          <div>
-            <span className="muted">مختصات</span>
-            <strong className="mono">{location ? `${location[0].toFixed(6)}, ${location[1].toFixed(6)}` : "ثبت نشده"}</strong>
-          </div>
-          <div>
-            <span className="muted">زمان موقعیت</span>
-            <strong>{formatTelemetryTime(locationTime)}</strong>
-          </div>
-          <div>
-            <span className="muted">وضعیت GNSS</span>
-            <strong>{locationFresh ? "موقعیت تازه دریافت شد" : location ? "وضعیت فعلی نامشخص" : "موقعیتی ثبت نشده"}</strong>
-          </div>
-        </div>
-
-        <button
-          className="secondary-btn"
-          type="button"
-          onClick={() => onNavigate(VIEWS.ROUTES)}
-        >
-          مشاهده نقشه و مسیرها
-        </button>
-      </section>
-
-      <section>
-        <ActionCard
-          icon={<Route />}
-          title="نقاط ثبت‌شده"
-          text={`${data.routeHistory?.length || 0} موقعیت واقعی در تاریخچه دستگاه`}
-          action="مشاهده نقشه"
-          onClick={() => onNavigate(VIEWS.ROUTES)}
-        />
-      </section>
       <p className="device-help muted">برای بررسی وضعیت حساب یا ارتباط API، از <button className="link-btn" type="button" onClick={() => onNavigate(VIEWS.PROFILE)}>پروفایل</button> استفاده کنید.</p>
     </>
   );
