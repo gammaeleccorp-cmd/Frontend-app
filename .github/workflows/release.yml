@@ -46,7 +46,7 @@ jobs:
       VPS_USER: ${{ secrets.VPS_USER }}
     steps:
       - name: Check out trusted deployment code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           ref: ${{ github.sha }}
           persist-credentials: false
