@@ -29,7 +29,7 @@ test("Negahban pages render without a vehicle or fresh telemetry", async () => {
     assert.doesNotMatch(home, /نقاط ثبت‌شده/);
 
     const vehicle = renderToStaticMarkup(createElement(VehiclePage, { product: "NEGAHBAN", data, now: Date.parse("2026-10-07T10:00:00Z"), onBack() {}, onRoutes() {} }));
-    assert.match(vehicle, /ثبت خودرو اختیاری است/);
+    assert.doesNotMatch(vehicle, /optional-vehicle|vehicle-form/);
     assert.match(vehicle, /NG-0001/);
 
     assert.equal((vehicle.match(/<h2>دستگاه نگهبان<\/h2>/g) || []).length, 1);
@@ -37,10 +37,24 @@ test("Negahban pages render without a vehicle or fresh telemetry", async () => {
     assert.doesNotMatch(vehicle, /tracker-overview|device-code-badge|device-received|Online|Offline/);
     assert.match(vehicle, /کد عمومی دستگاه/);
     assert.match(vehicle, /آخرین دریافت/);
-    assert.match(vehicle, /وضعیت GNSS/);
+    assert.doesNotMatch(vehicle, /GNSS|موقعیت دستگاه/);
+    assert.match(vehicle, /device-square-grid/);
+    assert.equal((vehicle.match(/class="info-card"/g) || []).length, 2);
     const missing = renderToStaticMarkup(createElement(VehiclePage, { product: "NEGAHBAN", data: { vehicle: {}, latestTelemetry: null }, onBack() {} }));
     assert.doesNotMatch(missing, /tracker-overview/);
-    assert.match(missing, /ثبت خودرو اختیاری است/);
+    assert.doesNotMatch(missing, /optional-vehicle|vehicle-form/);
+
+    const registrationProfile = renderToStaticMarkup(createElement(ProfilePage, {
+      vehicle: { deviceCode: "NG-0001" },
+      onRegisterVehicle() {}
+    }));
+    assert.match(registrationProfile, /optional-vehicle/);
+
+    const editVehicleProfile = renderToStaticMarkup(createElement(ProfilePage, {
+      vehicle: { id: 1, deviceCode: "NG-0001", model: "Dena" },
+      onUpdateVehicle() {}
+    }));
+    assert.match(editVehicleProfile, /vehicle-form/);
 
     const profile = renderToStaticMarkup(createElement(ProfilePage, { user: { firstName: "آزمایش", mobile: "09120000000", birthDate: "1995-03-21" }, onBack() {}, onLogout() {}, onTestBackend() {}, onUpdate() {} }));
     assert.match(profile, /بررسی اتصال/);

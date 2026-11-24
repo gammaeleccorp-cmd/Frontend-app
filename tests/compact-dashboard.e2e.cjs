@@ -109,7 +109,14 @@ const path = require('node:path');
       assert.equal(await page.locator('.relay-control').count(), 1, 'device page updates must not duplicate relay controls');
       assert.equal(await page.locator('.tracker-overview,.device-code-badge,.device-received').count(), 0);
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
-      assert.match(await page.locator('.info-grid').innerText(), /NG-0001|آخرین دریافت/);
+      assert.match(await page.locator('.info-grid').innerText(), /NG-0001/);
+      const squares = page.locator('.device-square-grid .info-card');
+      assert.equal(await squares.count(), 2);
+      for (const card of await squares.all()) {
+        const box = await card.boundingBox();
+        assert.ok(box && Math.abs(box.width - box.height) <= 2);
+      }
+      assert.equal(await page.locator('.optional-vehicle,.vehicle-form').count(), 0);
       const header = await page.locator('.page-header').boundingBox();
       const heading = await page.locator('.page-header h2').boundingBox();
       assert.ok(Math.abs(heading.x + heading.width / 2 - header.x - header.width / 2) < 2);

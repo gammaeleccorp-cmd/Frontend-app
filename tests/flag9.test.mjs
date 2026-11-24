@@ -137,12 +137,12 @@ test("repository: register, edit, relay commands and strict device→vehicle lin
   }
 });
 
-test("device page: optional vehicle button and relay control without vehicle", async () => {
+test("device relay controls and profile vehicle registration and editing", async () => {
   const { default: VehiclePage } = await vite.ssrLoadModule("/src/pages/VehiclePage.jsx");
   const data = { vehicle: { deviceCode: "NG-0001" }, latestTelemetry: null, lastLocation: null, routeHistory: [] };
   const props = { product: "NEGAHBAN", data, now: Date.now(), onBack() {}, onRoutes() {}, onUpdate() {}, onRegisterVehicle() {}, onSendRelay() {}, onPollCommand() {} };
   const html = renderToStaticMarkup(createElement(VehiclePage, props));
-  assert.match(html, /ثبت اطلاعات خودرو — اختیاری/);
+  assert.doesNotMatch(html, /ثبت اطلاعات خودرو — اختیاری/);
   assert.match(html, /کنترل رله/);
   assert.match(html, /وضعیت رله: نامشخص/);
   assert.match(html, /روشن کردن رله/);
@@ -150,8 +150,34 @@ test("device page: optional vehicle button and relay control without vehicle", a
   assert.doesNotMatch(html, /VIN/i);
 
   const withVehicle = renderToStaticMarkup(createElement(VehiclePage, { ...props, data: { ...data, vehicle: { ...data.vehicle, id: "veh-1", model: "پژو", plate: "12ب345", color: "—", production_year: 1402 } } }));
-  assert.match(withVehicle, /ویرایش اطلاعات خودرو/);
-  assert.match(withVehicle, /value="1402"/);
+  assert.doesNotMatch(withVehicle, /ویرایش اطلاعات خودرو/);
+  assert.doesNotMatch(withVehicle, /vehicle-form/);
+
+  const { default: ProfilePage } = await vite.ssrLoadModule("/src/pages/ProfilePage.jsx");
+
+  const registration = renderToStaticMarkup(createElement(ProfilePage, {
+    vehicle: data.vehicle,
+    onRegisterVehicle() {}
+  }));
+
+  assert.match(registration, /ثبت اطلاعات خودرو — اختیاری/);
+  assert.doesNotMatch(registration, /VIN/i);
+
+  const editing = renderToStaticMarkup(createElement(ProfilePage, {
+    vehicle: {
+      ...data.vehicle,
+      id: "veh-1",
+      model: "پژو",
+      plate: "12ب345",
+      color: "—",
+      production_year: 1402
+    },
+    onUpdateVehicle() {}
+  }));
+
+  assert.match(editing, /ویرایش اطلاعات خودرو/);
+  assert.match(editing, /value="1402"/);
+  assert.doesNotMatch(editing, /VIN/i);
   assert.doesNotMatch(withVehicle, /ثبت اطلاعات خودرو — اختیاری/);
   assert.match(withVehicle, /کنترل رله/, "relay stays available with a vehicle");
   assert.doesNotMatch(withVehicle, /VIN/i);

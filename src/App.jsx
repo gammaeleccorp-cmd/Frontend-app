@@ -326,11 +326,16 @@ function AddDeviceRoute() {
     onBack={() => navigate("/profile")}
   />;
 }
-function VehicleRoute() {
-  const { data, product, now, setData, showToast } = useApp(); const navigate = useNavigate();
+function useVehicleActions() {
+  const { data, setData, showToast } = useApp();
   const update = async (changes) => { if (!data.vehicle?.id) return; const raw = await repo.updateVehicle(data.vehicle.id, changes); setData((current) => ({ ...current, vehicle: { ...current.vehicle, ...raw, id: current.vehicle.id, model: raw.model || "—", year: String(raw.production_year || "—"), production_year: raw.production_year, plate: raw.license_plate || "—", color: raw.color || "—" } })); showToast("اطلاعات خودرو ذخیره شد."); };
   // Optional vehicle details for a device bound without them; refresh so the link shows everywhere.
   const register = async (form) => { await repo.registerDeviceVehicle(data.vehicle?.deviceCode, form); setData(await repo.getBootstrapData()); showToast("اطلاعات خودرو ثبت شد."); };
+  return { update, register };
+}
+function VehicleRoute() {
+  const { data, product, now } = useApp(); const navigate = useNavigate();
+  const { update, register } = useVehicleActions();
   return <VehiclePage product={product} data={data} now={now} onUpdate={update} onRegisterVehicle={register} onSendRelay={repo.sendRelayCommand} onPollCommand={repo.getCommand} onRoutes={() => navigate("/routes")} onBack={useBack()} />;
 }
 function DiagnosticsRoute() { const { product, data } = useApp(); const navigate = useNavigate(); if (product !== PRODUCTS.LUMINEN) return <Navigate to="/home" replace />; return <DiagnosticsPage dtcs={data.dtcs} onBack={() => navigate("/home")} onOpenDtc={(dtc) => navigate(`/diagnostics/${dtc.code}`, { state: { dtc } })} />; }
@@ -340,7 +345,7 @@ function ConnectionRoute() { const { product, data, setData, showToast } = useAp
 function OtaRoute() { const { product, data } = useApp(); const back = useBack(); if (product !== PRODUCTS.LUMINEN) return <Navigate to="/home" replace />; return <OtaPage vehicle={data.vehicle} onCheck={repo.checkOta} onBack={back} />; }
 function RoutesRoute() { const { product, data, now, setData, geofence } = useApp(); const back = useBack(); const [syncing, setSyncing] = useState(false); const [syncError, setSyncError] = useState(""); if (product !== PRODUCTS.NEGAHBAN) return <Navigate to="/home" replace />; const sync = async () => { setSyncing(true); setSyncError(""); try { setData(await repo.syncNegahban()); } catch (error) { setSyncError(error?.message || "به‌روزرسانی ناموفق بود."); } finally { setSyncing(false); } }; return <RoutesPage geofence={geofence} routePoints={data.routePoints} routeHistory={data.routeHistory} latestTelemetry={data.latestTelemetry} deviceCode={data.vehicle?.deviceCode} online={isTelemetryFresh({ recorded_at: data.routeHistory?.[0]?.recordedAt }, now)} historyError={syncError || data.historyError} onSync={sync} syncing={syncing} onBack={back} />; }
 function MpuRoute() { const { product, data } = useApp(); const back = useBack(); if (product !== PRODUCTS.NEGAHBAN) return <Navigate to="/home" replace />; return <MpuPage events={data.mpuEvents} onBack={back} />; }
-function ProfileRoute() { const navigate = useNavigate(); const { data, setData, showToast, logout } = useApp(); const back = useBack(); const update = async (changes) => { const raw = await repo.updateProfile(changes); setData((current) => ({ ...current, user: { ...current.user, firstName: raw?.first_name ?? changes.first_name, lastName: raw?.last_name ?? changes.last_name, birthDate: raw?.birth_date ?? changes.birth_date } })); showToast("پروفایل ذخیره شد."); }; return <ProfilePage onAddDevice={() => navigate("/add-device")} user={data.user} onUpdate={update} onTestBackend={repo.testBackendConnection} onBack={back} onLogout={logout} />; }
+function ProfileRoute() { const navigate = useNavigate(); const { data, product, setData, showToast, logout } = useApp(); const back = useBack(); const vehicleActions = useVehicleActions(); const update = async (changes) => { const raw = await repo.updateProfile(changes); setData((current) => ({ ...current, user: { ...current.user, firstName: raw?.first_name ?? changes.first_name, lastName: raw?.last_name ?? changes.last_name, birthDate: raw?.birth_date ?? changes.birth_date } })); showToast("پروفایل ذخیره شد."); }; return <ProfilePage vehicle={product === PRODUCTS.NEGAHBAN ? data.vehicle : undefined} onUpdateVehicle={vehicleActions.update} onRegisterVehicle={vehicleActions.register} onAddDevice={() => navigate("/add-device")} user={data.user} onUpdate={update} onTestBackend={repo.testBackendConnection} onBack={back} onLogout={logout} />; }
 
 void legacyOtpRoute;
 void legacyAppFrame;

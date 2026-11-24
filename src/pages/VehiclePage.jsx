@@ -1,5 +1,6 @@
+import "./VehiclePage.css";
 import { recordedPosition } from "../utils/flag15.mjs";
-import { Car, Cpu, MapPinned, Radio, Satellite } from "lucide-react";
+import { Car, Clock, Cpu, MapPinned, Radio, Satellite } from "lucide-react";
 import { useState } from "react";
 import PageHeader from "../components/PageHeader";
 import StatusBadge from "../components/StatusBadge";
@@ -9,7 +10,7 @@ import { vehicleErrorMessage, vehiclePayload } from "../utils/vehicle.mjs";
 import { PRODUCTS } from "../data/mockData";
 import { coordinates, formatTelemetryTime, isTelemetryFresh } from "../utils/telemetry.mjs";
 
-export default function VehiclePage({ product, data, now, onBack, onUpdate, onRoutes, onRegisterVehicle, onSendRelay, onPollCommand }) {
+export default function VehiclePage({ product, data, now, onBack, onUpdate, onRegisterVehicle, onSendRelay, onPollCommand }) {
   const vehicle = data.vehicle || {};
   const negahban = product === PRODUCTS.NEGAHBAN;
   const online = isTelemetryFresh(data.latestTelemetry, now);
@@ -27,26 +28,18 @@ export default function VehiclePage({ product, data, now, onBack, onUpdate, onRo
       <StatusBadge tone={online ? "success" : "default"}>{online ? "Online" : "Offline"}</StatusBadge>
     </section>}
 
-    <section className="info-grid">
+    <section className={`info-grid${negahban ? " device-square-grid" : ""}`}>
       <InfoCard icon={<Cpu />} label="کد عمومی دستگاه" value={vehicle.deviceCode || "—"} mono />
-      <InfoCard icon={<Radio />} label="آخرین دریافت" value={formatTelemetryTime(data.latestTelemetry?.received_at || data.latestTelemetry?.recorded_at)} />
-      <InfoCard icon={<Satellite />} label="وضعیت GNSS" value={isTelemetryFresh({ recorded_at: data.latestTelemetry?.recorded_at }, now) && coordinates(data.latestTelemetry) ? "موقعیت تازه دریافت شد" : lastLocation ? "وضعیت فعلی نامشخص" : "موقعیتی ثبت نشده"} />
-      <InfoCard icon={<MapPinned />} label="زمان ثبت موقعیت" value={formatTelemetryTime(recordedPosition(data)?.recordedAt)} />
+      <InfoCard icon={negahban ? <Clock /> : <Radio />} label="آخرین دریافت" value={formatTelemetryTime(data.latestTelemetry?.received_at || data.latestTelemetry?.recorded_at)} />
+      {!negahban && <InfoCard icon={<Satellite />} label="وضعیت GNSS" value={isTelemetryFresh({ recorded_at: data.latestTelemetry?.recorded_at }, now) && coordinates(data.latestTelemetry) ? "موقعیت تازه دریافت شد" : lastLocation ? "وضعیت فعلی نامشخص" : "موقعیتی ثبت نشده"} />}
+      {!negahban && <InfoCard icon={<MapPinned />} label="زمان ثبت موقعیت" value={formatTelemetryTime(recordedPosition(data)?.recordedAt)} />}
     </section>
 
-    {negahban && <section className="panel">
-      <div className="section-title"><h3>موقعیت دستگاه</h3></div>
-      <p className="muted mono">{lastLocation ? `${lastLocation[0].toFixed(6)}, ${lastLocation[1].toFixed(6)}` : "موقعیتی ثبت نشده است."}</p>
-      <button type="button" className="secondary-btn" onClick={onRoutes}>مشاهده نقشه و مسیرها</button>
-    </section>}
+
 
     {vehicle.deviceCode && onSendRelay && <RelayControl key={`relay:${vehicle.deviceCode}`} deviceCode={vehicle.deviceCode} onSend={onSendRelay} onPoll={onPollCommand} />}
 
-    {vehicle.id ? <>
-      <section className="panel vehicle-overview"><div className="vehicle-avatar"><Car size={30} /></div><div><h3>{vehicle.name || "خودرو"}</h3><p className="muted compact">{vehicle.model || "—"} · {vehicle.plate || "—"}</p></div></section>
-      <VehicleForm key={vehicle.id} title="ویرایش اطلاعات خودرو" submitLabel="ذخیره اطلاعات خودرو" initial={{ model: vehicle.model === "—" ? "" : vehicle.model, color: vehicle.color === "—" ? "" : vehicle.color, production_year: vehicle.production_year || "", license_plate: vehicle.plate === "—" ? "" : vehicle.plate }} onSubmit={onUpdate} />
-      {!negahban && <VehicleLocation vehicleId={vehicle.id} />}
-    </> : <OptionalVehicle key={`optional-vehicle:${vehicle.deviceCode}`} canRegister={Boolean(vehicle.deviceCode && onRegisterVehicle)} onRegister={onRegisterVehicle} />}
+    {!negahban && <VehicleDetails vehicle={vehicle} negahban={false} onUpdate={onUpdate} onRegisterVehicle={onRegisterVehicle} />}
   </section>;
 }
 
@@ -101,4 +94,17 @@ function OptionalVehicle({ canRegister, onRegister }) {
     <p className="muted compact">ثبت خودرو اختیاری است؛ نگهبان بدون آن موقعیت را دریافت و نمایش می‌دهد.</p>
     {canRegister && <button type="button" className="secondary-btn optional-vehicle-btn" onClick={() => setOpen(true)}>ثبت اطلاعات خودرو — اختیاری</button>}
   </section>;
+}
+
+export function VehicleDetails({
+  vehicle = {},
+  negahban = true,
+  onUpdate,
+  onRegisterVehicle
+}) {
+  return <>{vehicle.id ? <>
+      <section className="panel vehicle-overview"><div className="vehicle-avatar"><Car size={30} /></div><div><h3>{vehicle.name || "خودرو"}</h3><p className="muted compact">{vehicle.model || "—"} · {vehicle.plate || "—"}</p></div></section>
+      <VehicleForm key={vehicle.id} title="ویرایش اطلاعات خودرو" submitLabel="ذخیره اطلاعات خودرو" initial={{ model: vehicle.model === "—" ? "" : vehicle.model, color: vehicle.color === "—" ? "" : vehicle.color, production_year: vehicle.production_year || "", license_plate: vehicle.plate === "—" ? "" : vehicle.plate }} onSubmit={onUpdate} />
+      {!negahban && <VehicleLocation vehicleId={vehicle.id} />}
+    </> : <OptionalVehicle key={`optional-vehicle:${vehicle.deviceCode}`} canRegister={Boolean(vehicle.deviceCode && onRegisterVehicle)} onRegister={onRegisterVehicle} />}</>;
 }
